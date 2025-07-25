@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Tile, GameGrid } from '../types';
 import { AnimatedTile } from './AnimatedTile';
 import { GameOverOverlay } from './GameOverOverlay';
@@ -6,8 +6,10 @@ import { MergeScore } from './MergeScore';
 import { ResponsiveContainer } from './ResponsiveContainer';
 import { GameControls } from './GameControls';
 import { TILE_RADIUS, GRID_BORDER_WIDTH, GRID_BORDER_COLOR, GRID_BACKGROUND_COLOR, CELL_GAP } from '../constants/styles';
-import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard } from '../utils/storage';
+import { DESIGN_TOKENS } from '../constants/design-system';
+import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard, finalizeCurrentGame, hasFinalizedGame, canUndoAfterGameOver, setCanUndoAfterGameOver } from '../utils/storage';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
+import { useSwipeDetection } from '../hooks/useSwipeDetection';
 
 // Helper functions defined outside component to avoid recreation
 const getEmptyCells = (grid: GameGrid): Array<{row: number, col: number}> => {
@@ -74,6 +76,9 @@ interface GameBoardProps {
 }
 
 export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }: GameBoardProps) => {
+  // Ref for the game container to enable touch swipe detection
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+
   // Helper function to get highest tile level on the board
   const getHighestTileLevel = (grid: GameGrid): number => {
     let highest = 1;
@@ -93,6 +98,10 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     if (shouldLoadSavedGame) {
       const savedState = getSavedGameState();
       if (savedState) {
+        // When loading saved game, also set the undo-after-game-over flag if it was saved
+        if (savedState.canUndoAfterGameOver) {
+          setCanUndoAfterGameOver(true);
+        }
         return {
           grid: savedState.grid as GameGrid,
           nextId: savedState.nextId,
@@ -135,6 +144,10 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   const [localPendingScore, setLocalPendingScore] = useState<number | null>(null);
   const [scoreHasBeenSaved, setScoreHasBeenSaved] = useState(false);
   const [highestTileReached, setHighestTileReached] = useState(getHighestTileLevel(initialState.grid));
+  
+  // Loading states for async operations
+  const [isCheckingScore, setIsCheckingScore] = useState(false);
+  const [isSavingScore, setIsSavingScore] = useState(false);
 
   // Helper function to add score animation
   const addScoreAnimation = (score: number, row: number, col: number) => {
@@ -156,6 +169,29 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     setActiveScoreAnimations(prev => prev.filter(anim => anim.id !== id));
   };
 
+  // Helper function to check if score qualifies for leaderboard
+  const checkScoreQualification = async (scoreToCheck: number) => {
+    if (isCheckingScore) return; // Prevent multiple simultaneous checks
+    
+    setIsCheckingScore(true);
+    try {
+      const qualifiesForLeaderboard = await isTopScore(scoreToCheck);
+      if (qualifiesForLeaderboard) {
+        setLocalPendingScore(scoreToCheck);
+        onPendingScore?.(scoreToCheck);
+      } else {
+        // If score doesn't qualify, mark as "saved" so undo/continue work normally
+        setScoreHasBeenSaved(true);
+      }
+    } catch (error) {
+      console.error('Error checking if score qualifies for leaderboard:', error);
+      // On error, assume score doesn't qualify to prevent blocking the UI
+      setScoreHasBeenSaved(true);
+    } finally {
+      setIsCheckingScore(false);
+    }
+  };
+
   // Save current game state
   const saveCurrentGameState = () => {
     const gameState = {
@@ -170,26 +206,57 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       canUndo,
       wasRestartedViaHold,
       isGameOver,
+      canUndoAfterGameOver: canUndoAfterGameOver(), // Include the current undo-after-game-over flag
     };
     saveGameState(gameState);
   };
 
 
   // Handle name submission for leaderboard
-  const handleNameSubmission = (name: string) => {
-    if (localPendingScore !== null) {
-      addScoreToLeaderboard(localPendingScore, name, highestTileReached);
-      setScoreHasBeenSaved(true);
-      setLocalPendingScore(null);
-      onPendingScore?.(null);
-      // Clear saved game state after score is saved
-      clearSavedGameState();
+  const handleNameSubmission = async (name: string) => {
+    if (localPendingScore !== null && !isSavingScore) {
+      setIsSavingScore(true);
+      try {
+        const success = await addScoreToLeaderboard(localPendingScore, name, highestTileReached);
+        if (success) {
+          setScoreHasBeenSaved(true);
+          setLocalPendingScore(null);
+          onPendingScore?.(null);
+          // Mark the game as finalized instead of clearing it immediately
+          finalizeCurrentGame();
+          // Reset all undo capabilities in current session
+          setPreviousState(null);
+          setCanUndo(false);
+          setPreRestartState(null);
+          setWasRestartedViaHold(false);
+          // Clear undo-after-game-over flag after score submission
+          setCanUndoAfterGameOver(false);
+        } else {
+          console.error('Failed to save score to leaderboard');
+          // Keep the pending score and allow retry
+        }
+      } catch (error) {
+        console.error('Error saving score to leaderboard:', error);
+        // Keep the pending score and allow retry
+      } finally {
+        setIsSavingScore(false);
+      }
     }
   };
 
   // Handle undo
   const handleUndo = () => {
-    if (canUndo && !scoreHasBeenSaved) {
+    // Check if undo is allowed: must have undo state, score not saved, and game not finalized
+    const isFinalized = hasFinalizedGame();
+    const canUndoAfterGameOverFlag = canUndoAfterGameOver();
+    
+    // Allow undo if:
+    // 1. Normal conditions: canUndo && !scoreHasBeenSaved && !isFinalized
+    // 2. Special after-game-over: isGameOver && canUndoAfterGameOverFlag && !scoreHasBeenSaved && !isFinalized
+    const undoAllowed = (canUndo && !scoreHasBeenSaved && !isFinalized) || 
+                       (isGameOver && canUndoAfterGameOverFlag && !scoreHasBeenSaved && !isFinalized);
+    
+    if (undoAllowed) {
       if (wasRestartedViaHold && preRestartState) {
         console.log('🔄 GameBoard: Undoing restart via hold - restoring pre-restart state');
         // Undo restart via hold - restore pre-restart state
@@ -205,8 +272,10 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         setScoreHasBeenSaved(false); // Reset save state
         setHighestTileReached(getHighestTileLevel(preRestartState.grid)); // Reset to pre-restart highest tile
         onPendingScore?.(null); // Clear pending score in parent
+        // Clear undo-after-game-over flag
+        setCanUndoAfterGameOver(false);
       } else if (previousState) {
-        console.log('🔄 GameBoard: Undoing regular move');
+        console.log('🔄 GameBoard: Undoing regular move' + (isGameOver ? ' (after game over)' : ''));
         // Regular undo - restore previous move state
         setGrid(previousState.grid);
         setScore(previousState.score);
@@ -219,6 +288,8 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         setScoreHasBeenSaved(false); // Reset save state
         setHighestTileReached(getHighestTileLevel(previousState.grid)); // Reset to previous highest tile
         onPendingScore?.(null); // Clear pending score in parent
+        // Clear undo-after-game-over flag
+        setCanUndoAfterGameOver(false);
       }
     } else {
       console.log('🔴 GameBoard: Undo not available');
@@ -267,28 +338,67 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     setPreRestartState(null);
   };
 
-  const resetGame = () => {
-    // Only proceed with reset if score has been saved or doesn't qualify
-    if (scoreHasBeenSaved || !isTopScore(score)) {
-      resetGameState();
-      onBackToStart(); // Return to start screen
+  const resetGame = async () => {
+    if (isCheckingScore) return; // Prevent multiple simultaneous checks
+    
+    setIsCheckingScore(true);
+    try {
+      // Only proceed with reset if score has been saved or doesn't qualify
+      const qualifiesForLeaderboard = await isTopScore(score);
+      if (scoreHasBeenSaved || !qualifiesForLeaderboard) {
+        // Finalize current game before starting new one
+        finalizeCurrentGame();
+        resetGameState();
+        onBackToStart(); // Return to start screen
+      }
+    } catch (error) {
+      console.error('Error checking if score qualifies for leaderboard:', error);
+      // On error, allow reset if score has been saved
+      if (scoreHasBeenSaved) {
+        finalizeCurrentGame();
+        resetGameState();
+        onBackToStart();
+      }
+    } finally {
+      setIsCheckingScore(false);
     }
   };
 
 
-  const goToMainMenu = () => {
-    // Only proceed if score has been saved or doesn't qualify
-    if (scoreHasBeenSaved || !isTopScore(score)) {
-      // Only clear saved game state if game is not over (normal exit)
-      // If game is over, preserve state so user can continue and undo
-      if (!isGameOver) {
-        clearSavedGameState();
-      } else {
-        // Save current game state (including the ability to undo) for recovery
-        saveCurrentGameState();
+  const goToMainMenu = async () => {
+    if (isCheckingScore) return; // Prevent multiple simultaneous checks
+    
+    setIsCheckingScore(true);
+    try {
+      // Always proceed if score has been saved or doesn't qualify
+      const qualifiesForLeaderboard = await isTopScore(score);
+      if (scoreHasBeenSaved || !qualifiesForLeaderboard) {
+        if (!isGameOver) {
+          // Normal exit during gameplay - clear saved game state
+          clearSavedGameState();
+        } else {
+          // Game Over -> Main Menu: Save current game state for potential continuation
+          // Only if score hasn't been saved (not finalized yet)
+          if (!scoreHasBeenSaved) {
+            saveCurrentGameState();
+          }
+        }
+        // Navigate back to start screen
+        onBackToStart();
       }
-      // Navigate back to start screen without resetting current game variables
-      onBackToStart();
+    } catch (error) {
+      console.error('Error checking if score qualifies for leaderboard:', error);
+      // On error, allow navigation if score has been saved
+      if (scoreHasBeenSaved) {
+        if (!isGameOver) {
+          clearSavedGameState();
+        } else if (!scoreHasBeenSaved) {
+          saveCurrentGameState();
+        }
+        onBackToStart();
+      }
+    } finally {
+      setIsCheckingScore(false);
     }
   };
 
@@ -527,6 +637,9 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       if (checkGameOver(finalGrid)) {
         setIsGameOver(true);
         
+        // Set flag to allow undo once after game over
+        setCanUndoAfterGameOver(true);
+        
         // Update high score if current score is higher
         const currentHighScore = getHighScore();
         if (score > currentHighScore) {
@@ -534,12 +647,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         }
         
         // Check if score qualifies for leaderboard and store for later
-        if (isTopScore(score)) {
-          setLocalPendingScore(score);
-        } else {
-          // If score doesn't qualify, mark as "saved" so undo/continue work normally
-          setScoreHasBeenSaved(true);
-        }
+        checkScoreQualification(score);
       }
     } else {
       // If no move was made, don't save the previous state
@@ -554,6 +662,15 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     onRestart: undefined, // Disable R-hold restart in old hook
     disabled: isGameOver,
     canUndo: canUndo,
+  });
+
+  // Touch swipe controls for mobile devices
+  const { isTouchDevice } = useSwipeDetection({
+    onSwipe: handleMove,
+    disabled: isGameOver,
+    minSwipeDistance: 30,
+    maxSwipeTime: 1000,
+    element: gameContainerRef,
   });
 
 
@@ -581,41 +698,47 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     return tiles;
   };
 
-  // Responsive cell size that scales with viewport - increased by 40%
-  const baseCellSize = 84; // Increased from 60 to 84 (40% increase)
+  // Enhanced responsive cell sizing with design system integration
+  const baseCellSize = 100; // Increased for better visual presence  
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
   
-  // Better responsive scaling
-  const availableWidth = Math.max(viewportWidth - 120, 300); // More breathing room
-  const availableHeight = Math.max(viewportHeight - 400, 250); // Account for controls and title
+  // Calculate available space with improved logic
+  const availableWidth = Math.max(viewportWidth - 100, 320); // Better mobile support
+  const availableHeight = Math.max(viewportHeight - 350, 280); // Optimized for controls layout
   
+  // Calculate responsive cell size with proper scaling
   const cellSize = Math.min(
     baseCellSize,
-    Math.floor(availableWidth / (4 + (3 * CELL_GAP / baseCellSize))), // 4 cells + proportional gaps
-    Math.floor(availableHeight / (4 + (3 * CELL_GAP / baseCellSize)))
+    Math.floor((availableWidth - (3 * CELL_GAP)) / 4), // 4 cells + 3 gaps
+    Math.floor((availableHeight - (3 * CELL_GAP)) / 4)
   );
-  const actualCellSize = Math.max(cellSize, viewportWidth < 480 ? 45 : 56); // Smaller minimum for mobile
+  
+  // Set minimum cell sizes based on device type
+  const minCellSize = viewportWidth < 480 ? 50 : viewportWidth < 768 ? 65 : 75;
+  const actualCellSize = Math.max(cellSize, minCellSize);
 
   return (
-    <ResponsiveContainer>
+    <ResponsiveContainer allowScroll={false}>
       {/* Game Title */}
       <div style={{
-        fontSize: 'clamp(24px, 4vh, 32px)',
+        fontSize: DESIGN_TOKENS.fontSize['2xl'],
         fontWeight: 'bold',
         color: '#333',
         margin: '0',
         textAlign: 'center',
+        textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}>
         Emoji Fusion
       </div>
       
       {/* Score Display */}
       <div style={{ 
-        fontSize: 'clamp(16px, 2.5vh, 18px)', 
+        fontSize: DESIGN_TOKENS.fontSize.lg, 
         color: '#666',
         margin: '0',
         textAlign: 'center',
+        fontWeight: '600',
       }}>
         Score: {score.toLocaleString()}
       </div>
@@ -625,13 +748,14 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         onGoHome={onBackToStart}
         onUndo={handleUndo}
         onReset={restartViaHold}
-        canUndo={canUndo && !scoreHasBeenSaved}
+        canUndo={(canUndo && !scoreHasBeenSaved && !hasFinalizedGame()) || (isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame())}
         disabled={isGameOver}
-        allowUndoWhenDisabled={!scoreHasBeenSaved}
+        allowUndoWhenDisabled={isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame()}
       />
       
-      {/* Game Container with responsive sizing */}
+      {/* Game Container with clean, flat design */}
       <div 
+        ref={gameContainerRef}
         className="game-container"
         style={{ 
           position: 'relative',
@@ -639,11 +763,14 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           height: (actualCellSize + CELL_GAP) * 4 - CELL_GAP,
           margin: '0 auto',
           isolation: 'isolate',
-          // Ensure minimum size but allow scaling
+          // Removed border radius and box shadow for clean, flat appearance
+          // Responsive constraints to ensure grid stays visible
           minWidth: '280px',
           minHeight: '280px',
-          maxWidth: '90vw',
-          maxHeight: '40vh',
+          maxWidth: 'min(90vw, 500px)', // Cap maximum size
+          maxHeight: 'min(45vh, 500px)',
+          // Ensure proper display on small screens
+          flex: '0 0 auto',
         }}
       >
         {/* Grid background cells */}
@@ -695,6 +822,9 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             onRestart={resetGame}
             onMainMenu={goToMainMenu}
             onNameSubmit={handleNameSubmission}
+            isCheckingScore={isCheckingScore}
+            isSavingScore={isSavingScore}
+            qualifiesForLeaderboard={localPendingScore !== null}
           />
         )}
       </div>
@@ -703,12 +833,17 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       {/* Instructions */}
       <div style={{ 
         color: '#666', 
-        fontSize: 'clamp(12px, 2vh, 14px)',
+        fontSize: DESIGN_TOKENS.fontSize.xs,
         textAlign: 'center',
         margin: '0',
         maxWidth: '90%',
+        lineHeight: '1.4',
+        opacity: 0.8,
       }}>
-        Use arrow keys or WASD to move tiles. Press U to undo.
+        {isTouchDevice 
+          ? "Swipe to move tiles. Hold reset button for 1 second to restart." 
+          : "Use arrow keys or WASD to move tiles. Press U to undo. Hold R to restart."
+        }
       </div>
 
     </ResponsiveContainer>
