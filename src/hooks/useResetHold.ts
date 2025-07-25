@@ -18,7 +18,7 @@ export const useResetHold = ({
   const startTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const resetTriggeredRef = useRef(false);
-  const holdSourceRef = useRef<'mouse' | 'keyboard' | null>(null);
+  const holdSourceRef = useRef<'mouse' | 'keyboard' | 'touch' | null>(null);
 
   // Clean up animation frame
   const cleanupAnimation = useCallback(() => {
@@ -72,7 +72,7 @@ export const useResetHold = ({
   }, [duration, disabled, onReset, cleanupAnimation, resetState]);
 
   // Start hold
-  const startHold = useCallback((source: 'mouse' | 'keyboard') => {
+  const startHold = useCallback((source: 'mouse' | 'keyboard' | 'touch') => {
     if (disabled || isHolding || resetTriggeredRef.current) {
       console.log(`🔴 Cannot start ${source} hold:`, { disabled, isHolding, resetTriggered: resetTriggeredRef.current });
       return;
@@ -93,7 +93,7 @@ export const useResetHold = ({
   }, [disabled, isHolding, animate, cleanupAnimation]);
 
   // Cancel hold
-  const cancelHold = useCallback((source?: 'mouse' | 'keyboard') => {
+  const cancelHold = useCallback((source?: 'mouse' | 'keyboard' | 'touch') => {
     // Only cancel if no source specified, or if source matches current hold source
     if (source && holdSourceRef.current && holdSourceRef.current !== source) {
       return;
@@ -112,6 +112,15 @@ export const useResetHold = ({
 
   const cancelMouseHold = useCallback(() => {
     cancelHold('mouse');
+  }, [cancelHold]);
+
+  // Touch-specific functions
+  const startTouchHold = useCallback(() => {
+    startHold('touch');
+  }, [startHold]);
+
+  const cancelTouchHold = useCallback(() => {
+    cancelHold('touch');
   }, [cancelHold]);
 
   // Keyboard event handlers
@@ -173,5 +182,7 @@ export const useResetHold = ({
     startTime: startTimeRef.current,
     startMouseHold,
     cancelMouseHold,
+    startTouchHold,
+    cancelTouchHold,
   };
 };

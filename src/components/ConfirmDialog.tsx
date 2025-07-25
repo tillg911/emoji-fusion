@@ -1,3 +1,6 @@
+import { GameButton } from './GameButton';
+import { DESIGN_TOKENS } from '../constants/design-system';
+
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
@@ -35,19 +38,19 @@ export const ConfirmDialog = ({
     }}>
       <div style={{
         backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '32px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        borderRadius: DESIGN_TOKENS.borderRadius.xl,
+        padding: DESIGN_TOKENS.spacing['3xl'],
+        boxShadow: DESIGN_TOKENS.boxShadow.xl,
         maxWidth: '400px',
         width: '90%',
         textAlign: 'center',
       }}>
         {/* Title */}
         <h3 style={{
-          fontSize: '24px',
+          fontSize: DESIGN_TOKENS.fontSize.xl,
           fontWeight: 'bold',
           color: '#333',
-          marginBottom: '16px',
+          marginBottom: DESIGN_TOKENS.spacing.lg,
           marginTop: 0,
         }}>
           {title}
@@ -55,10 +58,10 @@ export const ConfirmDialog = ({
 
         {/* Message */}
         <p style={{
-          fontSize: '16px',
+          fontSize: DESIGN_TOKENS.fontSize.base,
           color: '#666',
           lineHeight: '1.5',
-          marginBottom: '32px',
+          marginBottom: DESIGN_TOKENS.spacing['3xl'],
           marginTop: 0,
         }}>
           {message}
@@ -67,65 +70,30 @@ export const ConfirmDialog = ({
         {/* Buttons */}
         <div style={{
           display: 'flex',
-          gap: '12px',
+          gap: DESIGN_TOKENS.spacing.md,
           justifyContent: 'center',
         }}>
           {/* Cancel Button */}
-          <button
+          <GameButton
             onClick={onCancel}
-            style={{
-              fontSize: '16px',
-              fontWeight: 'bold',
-              color: '#666',
-              backgroundColor: 'transparent',
-              border: '2px solid #ddd',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              minWidth: '100px',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = '#999';
-              e.currentTarget.style.color = '#333';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = '#ddd';
-              e.currentTarget.style.color = '#666';
-            }}
+            variant="secondary"
+            size="sm"
+            fullWidth={false}
+            style={{ minWidth: '100px' }}
           >
             ❌ {cancelText}
-          </button>
+          </GameButton>
 
           {/* Confirm Button */}
-          <button
+          <GameButton
             onClick={onConfirm}
-            style={{
-              fontSize: '16px',
-              fontWeight: 'bold',
-              color: 'white',
-              backgroundColor: '#4CAF50',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
-              transition: 'all 0.2s ease',
-              minWidth: '100px',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = '#45a049';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = '#4CAF50';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(76, 175, 80, 0.3)';
-            }}
+            variant="primary"
+            size="sm"
+            fullWidth={false}
+            style={{ minWidth: '100px' }}
           >
             ✅ {confirmText}
-          </button>
+          </GameButton>
         </div>
       </div>
     </div>

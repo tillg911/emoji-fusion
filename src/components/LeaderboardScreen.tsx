@@ -1,25 +1,46 @@
-import { getLeaderboard } from '../utils/storage';
+import { useState, useEffect } from 'react';
+import { getLeaderboard, LeaderboardEntry } from '../utils/storage';
 import { GameButton } from './GameButton';
 import { ResponsiveContainer } from './ResponsiveContainer';
 import { EMOJI_MAP } from '../constants/emojis';
+import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface LeaderboardScreenProps {
   onBackToHome: () => void;
 }
 
 export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
-  const leaderboard = getLeaderboard();
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getLeaderboard();
+        setLeaderboard(data);
+      } catch (error) {
+        console.error('Failed to load leaderboard:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadLeaderboard();
+  }, []);
+
   const topScores = leaderboard.slice(0, 10); // Show only top 10 scores
 
   return (
     <ResponsiveContainer>
       {/* Screen Title */}
       <div style={{
-        fontSize: 'clamp(28px, 5vh, 42px)',
+        fontSize: DESIGN_TOKENS.fontSize['3xl'],
         fontWeight: 'bold',
         color: '#333',
         textAlign: 'center',
         margin: '0',
+        textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}>
         🏆 Leaderboard
       </div>
@@ -29,9 +50,9 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         width: '100%',
         maxWidth: '500px',
         backgroundColor: 'white',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        padding: 'clamp(20px, 4vh, 32px)',
+        borderRadius: DESIGN_TOKENS.borderRadius.xl,
+        boxShadow: DESIGN_TOKENS.boxShadow.overlay,
+        padding: `clamp(${DESIGN_TOKENS.spacing.xl}, 4vh, ${DESIGN_TOKENS.spacing['3xl']})`,
         minHeight: 'clamp(300px, 50vh, 400px)',
         maxHeight: '60vh',
         display: 'flex',
@@ -39,14 +60,38 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         overflowY: 'auto',
         margin: '0',
       }}>
-        {topScores.length > 0 ? (
+        {isLoading ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            textAlign: 'center',
+            color: '#666',
+          }}>
+            <div style={{
+              fontSize: DESIGN_TOKENS.fontSize['4xl'],
+              marginBottom: DESIGN_TOKENS.spacing.lg,
+            }}>
+              ⏳
+            </div>
+            <div style={{
+              fontSize: DESIGN_TOKENS.fontSize.lg,
+              fontWeight: 'bold',
+              color: '#333',
+            }}>
+              Loading leaderboard...
+            </div>
+          </div>
+        ) : topScores.length > 0 ? (
           <>
             <div style={{
-              fontSize: 'clamp(20px, 3vh, 24px)',
+              fontSize: DESIGN_TOKENS.fontSize.xl,
               fontWeight: 'bold',
               color: '#333',
               textAlign: 'center',
-              marginBottom: 'clamp(16px, 3vh, 24px)',
+              marginBottom: DESIGN_TOKENS.spacing.xl,
             }}>
               Top Scores
             </div>
@@ -54,7 +99,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
             <div style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 'clamp(8px, 1.5vh, 12px)',
+              gap: DESIGN_TOKENS.spacing.md,
               flex: 1,
             }}>
               {topScores.map((entry, index) => {
@@ -68,19 +113,19 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      padding: 'clamp(14px, 2.5vh, 18px) clamp(16px, 3vh, 20px)',
+                      padding: `${DESIGN_TOKENS.spacing.lg} ${DESIGN_TOKENS.spacing.xl}`,
                       backgroundColor: isFirst 
                         ? 'rgba(255, 215, 0, 0.12)' 
                         : isTop3 
                           ? 'rgba(76, 175, 80, 0.06)' 
                           : 'rgba(248, 249, 250, 0.8)',
-                      borderRadius: '10px',
+                      borderRadius: DESIGN_TOKENS.borderRadius.lg,
                       border: isFirst 
                         ? '1px solid rgba(255, 215, 0, 0.3)' 
                         : isTop3 
                           ? '1px solid rgba(76, 175, 80, 0.15)' 
                           : '1px solid rgba(0, 0, 0, 0.06)',
-                      transition: 'transform 0.2s ease',
+                      transition: `transform ${DESIGN_TOKENS.transition.base}`,
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.transform = 'translateY(-2px)';
@@ -100,13 +145,13 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 'clamp(12px, 2vh, 16px)',
+                        gap: DESIGN_TOKENS.spacing.lg,
                         flex: '1',
                         minWidth: '0', // Allow text truncation if needed
                       }}>
                         {/* Rank with special styling */}
                         <div style={{
-                          fontSize: 'clamp(18px, 2.8vh, 22px)',
+                          fontSize: DESIGN_TOKENS.fontSize.lg,
                           fontWeight: 'bold',
                           minWidth: 'clamp(30px, 4vh, 35px)',
                           textAlign: 'center',
@@ -123,7 +168,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                         
                         {/* Player Name */}
                         <div style={{
-                          fontSize: 'clamp(16px, 2.5vh, 18px)',
+                          fontSize: DESIGN_TOKENS.fontSize.base,
                           fontWeight: '500',
                           color: '#333',
                           overflow: 'hidden',
@@ -136,16 +181,16 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                       
                       {/* Center: Highest Tile Emoji + Level */}
                       <div style={{
-                        fontSize: 'clamp(14px, 2.2vh, 16px)',
+                        fontSize: DESIGN_TOKENS.fontSize.sm,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 'clamp(4px, 0.8vh, 6px)',
+                        gap: DESIGN_TOKENS.spacing.xs,
                         color: '#666',
                         fontWeight: '500',
                         minWidth: 'clamp(50px, 8vh, 60px)',
                       }}>
-                        <span style={{ fontSize: 'clamp(16px, 2.5vh, 18px)' }}>
+                        <span style={{ fontSize: DESIGN_TOKENS.fontSize.base }}>
                           {EMOJI_MAP.get(entry.highestTile || 1) || '❓'}
                         </span>
                         <span>
@@ -155,7 +200,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                       
                       {/* Right: Score */}
                       <div style={{
-                        fontSize: 'clamp(16px, 2.5vh, 18px)',
+                        fontSize: DESIGN_TOKENS.fontSize.base,
                         fontWeight: '600',
                         color: '#333',
                         textAlign: 'right',
@@ -180,21 +225,21 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
             color: '#666',
           }}>
             <div style={{
-              fontSize: 'clamp(40px, 8vh, 48px)',
-              marginBottom: 'clamp(12px, 2vh, 16px)',
+              fontSize: DESIGN_TOKENS.fontSize['4xl'],
+              marginBottom: DESIGN_TOKENS.spacing.lg,
             }}>
               🎮
             </div>
             <div style={{
-              fontSize: 'clamp(18px, 3vh, 20px)',
+              fontSize: DESIGN_TOKENS.fontSize.xl,
               fontWeight: 'bold',
-              marginBottom: 'clamp(6px, 1vh, 8px)',
+              marginBottom: DESIGN_TOKENS.spacing.sm,
               color: '#333',
             }}>
               No Scores Yet
             </div>
             <div style={{
-              fontSize: 'clamp(14px, 2vh, 16px)',
+              fontSize: DESIGN_TOKENS.fontSize.base,
               lineHeight: '1.5',
             }}>
               Play your first game to start building your leaderboard!
@@ -206,9 +251,12 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
       {/* Home Button */}
       <div style={{
         width: '100%',
-        maxWidth: '320px',
+        maxWidth: DESIGN_TOKENS.layout.buttonMaxWidth,
       }}>
-        <GameButton onClick={onBackToHome}>
+        <GameButton 
+          onClick={onBackToHome}
+          variant="secondary"
+        >
           🏠 Home
         </GameButton>
       </div>

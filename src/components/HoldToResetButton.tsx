@@ -1,5 +1,6 @@
 import { useResetHold } from '../hooks/useResetHold';
 import { THEME_COLORS } from '../constants/colors';
+import { DESIGN_TOKENS, BUTTON_SIZES } from '../constants/design-system';
 
 interface HoldToResetButtonProps {
   onReset: () => void;
@@ -46,7 +47,7 @@ const getProgressColor = (progress: number): string => {
 
 export const HoldToResetButton = ({ onReset, disabled = false }: HoldToResetButtonProps) => {
   // Use the unified reset hold hook
-  const { isHolding, progress, startMouseHold, cancelMouseHold } = useResetHold({
+  const { isHolding, progress, startMouseHold, cancelMouseHold, startTouchHold, cancelTouchHold } = useResetHold({
     onReset,
     duration: 1000, // 1 second
     disabled
@@ -67,6 +68,22 @@ export const HoldToResetButton = ({ onReset, disabled = false }: HoldToResetButt
     cancelMouseHold();
   };
 
+  // Touch event handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    startTouchHold();
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    cancelTouchHold();
+  };
+
+  const handleTouchCancel = (e: React.TouchEvent) => {
+    e.preventDefault();
+    cancelTouchHold();
+  };
+
   const progressPercentage = Math.max(0, Math.min(100, progress * 100));
   const fillColor = getProgressColor(progress);
 
@@ -76,21 +93,25 @@ export const HoldToResetButton = ({ onReset, disabled = false }: HoldToResetButt
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         disabled={disabled}
         style={{
           position: 'relative',
-          fontSize: '16px',
-          padding: '12px 20px',
-          minWidth: '140px',
+          fontSize: BUTTON_SIZES.sm.fontSize,
+          padding: BUTTON_SIZES.sm.padding,
+          minWidth: 'clamp(80px, 15vw, 140px)',
+          minHeight: BUTTON_SIZES.sm.minHeight,
           fontWeight: 'bold',
           border: `2px solid ${THEME_COLORS.border.light}`,
-          borderRadius: '8px',
+          borderRadius: BUTTON_SIZES.sm.borderRadius,
           backgroundColor: disabled ? THEME_COLORS.background : THEME_COLORS.background,
           color: disabled ? THEME_COLORS.uiGray : THEME_COLORS.textSecondary,
           cursor: disabled ? 'not-allowed' : 'pointer',
           overflow: 'hidden',
           userSelect: 'none',
-          transition: 'all 0.2s ease',
+          transition: `all ${DESIGN_TOKENS.transition.base}`,
           opacity: disabled ? 0.5 : 1,
           boxShadow: isHolding ? 'inset 0 2px 4px rgba(0,0,0,0.2)' : 'none',
         }}

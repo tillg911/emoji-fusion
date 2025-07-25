@@ -3,7 +3,7 @@ import { GameBoard } from './components/GameBoard';
 import { StartScreen } from './components/StartScreen';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
 import { ConfirmDialog } from './components/ConfirmDialog';
-import { hasSavedGame, clearSavedGameState, addScoreToLeaderboard } from './utils/storage';
+import { hasSavedGame, clearSavedGameState, addScoreToLeaderboard, finalizeCurrentGame } from './utils/storage';
 import { NameEntryModal } from './components/NameEntryModal';
 
 type GameState = 'start' | 'playing' | 'leaderboard';
@@ -49,6 +49,8 @@ function App() {
 
 
   const confirmNewGame = () => {
+    // Finalize the current game before starting a new one
+    finalizeCurrentGame();
     clearSavedGameState();
     setShouldLoadSavedGame(false);
     setShowConfirmDialog(false);
@@ -61,29 +63,39 @@ function App() {
   };
   
   // Handle name entry modal submission
-  const handleNameSubmit = (name: string) => {
+  const handleNameSubmit = async (name: string) => {
     if (pendingLeaderboardScore !== null) {
-      addScoreToLeaderboard(pendingLeaderboardScore, name);
+      try {
+        await addScoreToLeaderboard(pendingLeaderboardScore, name);
+      } catch (error) {
+        console.error('Failed to save score to leaderboard:', error);
+      }
     }
     setPendingLeaderboardScore(null);
     setShowNameEntryModal(false);
-    // Start new game after saving score
+    // Finalize and clear the game after saving score
+    finalizeCurrentGame();
     clearSavedGameState();
     setShouldLoadSavedGame(false);
-    setGameState('playing');
+    setGameState('start');
   };
   
   // Handle name entry modal cancellation
-  const handleNameCancel = () => {
+  const handleNameCancel = async () => {
     if (pendingLeaderboardScore !== null) {
-      addScoreToLeaderboard(pendingLeaderboardScore, 'Anonymous');
+      try {
+        await addScoreToLeaderboard(pendingLeaderboardScore, 'Anonymous');
+      } catch (error) {
+        console.error('Failed to save score to leaderboard:', error);
+      }
     }
     setPendingLeaderboardScore(null);
     setShowNameEntryModal(false);
-    // Start new game after saving score
+    // Finalize and clear the game after saving score
+    finalizeCurrentGame();
     clearSavedGameState();
     setShouldLoadSavedGame(false);
-    setGameState('playing');
+    setGameState('start');
   };
 
   const cancelNewGame = () => {

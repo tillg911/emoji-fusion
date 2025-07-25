@@ -1,5 +1,6 @@
-import { Button } from './Button';
+import { GameButton } from './GameButton';
 import { HoldToResetButton } from './HoldToResetButton';
+import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface GameControlsProps {
   onGoHome: () => void;
@@ -23,30 +24,34 @@ export const GameControls = ({
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      gap: 'clamp(8px, 2vw, 16px)', // Responsive gap
-      padding: '16px 0',
-      marginBottom: '20px',
+      gap: DESIGN_TOKENS.spacing.md,
+      padding: `${DESIGN_TOKENS.spacing.lg} 0`,
+      marginBottom: DESIGN_TOKENS.spacing.xl,
       maxWidth: '100%',
-      margin: '0 auto 20px auto',
-      flexWrap: 'wrap', // Wrap on narrow screens
+      margin: `0 auto ${DESIGN_TOKENS.spacing.xl} auto`,
+      flexWrap: 'wrap',
     }}>
-      <Button
+      <GameButton
         variant="secondary"
-        size="medium"
+        size="sm"
+        fullWidth={false}
         onClick={onGoHome}
         disabled={disabled}
+        style={{ minWidth: 'clamp(80px, 15vw, 120px)' }}
       >
         🏠 Home
-      </Button>
+      </GameButton>
       
-      <Button
+      <GameButton
         variant="warning"
-        size="medium"
+        size="sm"
+        fullWidth={false}
         onClick={onUndo}
         disabled={!canUndo || (disabled && !allowUndoWhenDisabled)}
+        style={{ minWidth: 'clamp(80px, 15vw, 120px)' }}
       >
         ↩️ Undo
-      </Button>
+      </GameButton>
       
       <HoldToResetButton
         onReset={onReset}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Button } from './Button';
+import { GameButton } from './GameButton';
 import { THEME_COLORS } from '../constants/colors';
+import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface NameEntryModalProps {
   isVisible: boolean;
@@ -68,11 +69,11 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
       <div
         style={{
           backgroundColor: THEME_COLORS.background,
-          borderRadius: '12px',
-          padding: '32px',
+          borderRadius: DESIGN_TOKENS.borderRadius.xl,
+          padding: DESIGN_TOKENS.spacing['3xl'],
           maxWidth: '400px',
           width: '90%',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          boxShadow: DESIGN_TOKENS.boxShadow.xl,
           border: `2px solid ${THEME_COLORS.border.medium}`,
         }}
       >
@@ -85,9 +86,9 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
           <h2
             style={{
               color: THEME_COLORS.textPrimary,
-              fontSize: '24px',
+              fontSize: DESIGN_TOKENS.fontSize.xl,
               fontWeight: 'bold',
-              margin: '0 0 12px 0',
+              margin: `0 0 ${DESIGN_TOKENS.spacing.md} 0`,
             }}
           >
             🎉 New High Score!
@@ -147,21 +148,25 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
               justifyContent: 'center',
             }}
           >
-            <Button
+            <GameButton
               variant="secondary"
-              size="medium"
+              size="sm"
+              fullWidth={false}
               type="button"
               onClick={onCancel}
+              style={{ minWidth: '100px' }}
             >
               Skip
-            </Button>
-            <Button
+            </GameButton>
+            <GameButton
               variant="primary"
-              size="medium"
+              size="sm"
+              fullWidth={false}
               type="submit"
+              style={{ minWidth: '100px' }}
             >
               Save Score
-            </Button>
+            </GameButton>
           </div>
         </form>
 

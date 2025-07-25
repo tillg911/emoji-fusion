@@ -1,6 +1,7 @@
 import { getHighScore, hasSavedGame } from '../utils/storage';
 import { GameButton } from './GameButton';
 import { ResponsiveContainer } from './ResponsiveContainer';
+import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface StartScreenProps {
   onStartGame: () => void;
@@ -16,22 +17,23 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
     <ResponsiveContainer>
       {/* Game Title */}
       <div style={{
-        fontSize: 'clamp(32px, 6vh, 48px)',
+        fontSize: DESIGN_TOKENS.fontSize['4xl'],
         fontWeight: 'bold',
         color: '#333',
         textAlign: 'center',
         margin: '0',
+        textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}>
         🎮 Emoji Fusion
       </div>
 
       {/* Game Description */}
       <div style={{
-        fontSize: 'clamp(14px, 2.5vh, 18px)',
+        fontSize: DESIGN_TOKENS.fontSize.base,
         color: '#666',
         textAlign: 'center',
         maxWidth: '90%',
-        lineHeight: '1.4',
+        lineHeight: '1.5',
         margin: '0',
       }}>
         Merge tiles with the same emoji to create new ones! Use arrow keys to move tiles and reach the highest score possible.
@@ -40,15 +42,16 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
       {/* High Score Display */}
       {highScore > 0 && (
         <div style={{
-          fontSize: 'clamp(16px, 3vh, 20px)',
+          fontSize: DESIGN_TOKENS.fontSize.lg,
           color: '#4CAF50',
           fontWeight: 'bold',
-          padding: 'clamp(8px, 1.5vh, 12px) clamp(16px, 3vh, 24px)',
+          padding: `${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.spacing.xl}`,
           backgroundColor: 'rgba(76, 175, 80, 0.1)',
-          borderRadius: '8px',
+          borderRadius: DESIGN_TOKENS.borderRadius.lg,
           border: '2px solid rgba(76, 175, 80, 0.2)',
           margin: '0',
           textAlign: 'center',
+          boxShadow: DESIGN_TOKENS.boxShadow.sm,
         }}>
           🏆 High Score: {highScore.toLocaleString()}
         </div>
@@ -58,23 +61,30 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
       <div style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 'clamp(12px, 2vh, 20px)',
+        gap: DESIGN_TOKENS.spacing.lg,
         alignItems: 'center',
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: DESIGN_TOKENS.layout.buttonMaxWidth,
       }}>
-        <GameButton onClick={onStartGame}>
+        <GameButton 
+          onClick={onStartGame}
+          variant="primary"
+        >
           ✅ Start New Game
         </GameButton>
 
         <GameButton
           onClick={onContinueGame}
           disabled={!hasActiveSave}
+          variant="secondary"
         >
           ▶️ Continue Game
         </GameButton>
 
-        <GameButton onClick={onShowLeaderboard}>
+        <GameButton 
+          onClick={onShowLeaderboard}
+          variant="secondary"
+        >
           🏆 Leaderboard
         </GameButton>
       </div>

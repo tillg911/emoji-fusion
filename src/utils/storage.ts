@@ -1,4 +1,5 @@
-// Local storage utilities for game data persistence
+// Storage utilities for game data persistence
+import { supabase } from '../supabase';
 
 const STORAGE_KEYS = {
   HIGH_SCORE: 'emoji-fusion-high-score',
@@ -33,6 +34,8 @@ export interface SavedGameState {
   canUndo?: boolean;
   wasRestartedViaHold?: boolean;
   isGameOver?: boolean;
+  gameFinalized?: boolean; // Tracks if game has been finalized (score submitted or new game started)
+  canUndoAfterGameOver?: boolean; // Tracks if player can undo once after game over
 }
 
 // High Score Management
@@ -55,52 +58,60 @@ export const setHighScore = (score: number): void => {
 };
 
 // Leaderboard Management
-export const getLeaderboard = (): LeaderboardEntry[] => {
+export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.LEADERBOARD);
-    if (!stored) return [];
-    
-    const leaderboard = JSON.parse(stored) as LeaderboardEntry[];
-    // Add backwards compatibility for entries without highestTile
-    const compatibleLeaderboard = leaderboard.map(entry => ({
-      ...entry,
-      highestTile: entry.highestTile || 1
+    const { data, error } = await supabase
+      .from('leaderboard')
+      .select('*')
+      .order('score', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.warn('Failed to fetch leaderboard from Supabase:', error);
+      return [];
+    }
+
+    return data.map((entry, index) => ({
+      score: entry.score,
+      name: entry.name,
+      rank: index + 1,
+      highestTile: entry.tile,
     }));
-    return compatibleLeaderboard.sort((a, b) => b.score - a.score).slice(0, 10); // Keep top 10
   } catch (error) {
-    console.warn('Failed to read leaderboard from localStorage:', error);
+    console.warn('Failed to read leaderboard from Supabase:', error);
     return [];
   }
 };
 
-export const addScoreToLeaderboard = (score: number, name: string = 'Anonymous', highestTile: number = 1): boolean => {
+export const addScoreToLeaderboard = async (score: number, name: string = 'Anonymous', highestTile: number = 1): Promise<boolean> => {
   try {
-    const currentLeaderboard = getLeaderboard();
-    const newEntry: LeaderboardEntry = {
-      score,
-      name: name.trim() || 'Anonymous', // Fallback to Anonymous if name is empty
-      rank: 1,
-      highestTile,
-    };
-
-    // Add new score and sort
-    const updatedLeaderboard = [...currentLeaderboard, newEntry]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10) // Keep only top 10
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
-
-    localStorage.setItem(STORAGE_KEYS.LEADERBOARD, JSON.stringify(updatedLeaderboard));
+    const cleanName = name.trim() || 'Anonymous';
     
-    // Return true if the new score made it to top 5
-    return updatedLeaderboard.some(entry => entry.score === score && entry.name === newEntry.name);
+    // Insert the new score
+    const { error } = await supabase
+      .from('leaderboard')
+      .insert({
+        name: cleanName,
+        score,
+        tile: highestTile,
+      });
+
+    if (error) {
+      console.warn('Failed to save leaderboard entry to Supabase:', error);
+      return false;
+    }
+
+    // Check if the score made it to top 10 by fetching the leaderboard
+    const leaderboard = await getLeaderboard();
+    return leaderboard.some(entry => entry.score === score && entry.name === cleanName);
   } catch (error) {
-    console.warn('Failed to save leaderboard to localStorage:', error);
+    console.warn('Failed to save leaderboard to Supabase:', error);
     return false;
   }
 };
 
-export const isTopScore = (score: number): boolean => {
-  const leaderboard = getLeaderboard();
+export const isTopScore = async (score: number): Promise<boolean> => {
+  const leaderboard = await getLeaderboard();
   return leaderboard.length < 10 || score > leaderboard[leaderboard.length - 1]?.score;
 };
 
@@ -135,5 +146,51 @@ export const clearSavedGameState = (): void => {
 };
 
 export const hasSavedGame = (): boolean => {
-  return getSavedGameState() !== null;
+  const savedState = getSavedGameState();
+  return savedState !== null && !savedState.gameFinalized;
+};
+
+// Check if the saved game state exists but is finalized (can't be continued)
+export const hasFinalizedGame = (): boolean => {
+  const savedState = getSavedGameState();
+  return savedState !== null && savedState.gameFinalized === true;
+};
+
+// Mark the current saved game as finalized (after score submission or new game)
+export const finalizeCurrentGame = (): void => {
+  const savedState = getSavedGameState();
+  if (savedState) {
+    const finalizedState: SavedGameState = {
+      ...savedState,
+      gameFinalized: true,
+      canUndoAfterGameOver: false // Clear undo-after-game-over when finalizing
+    };
+    try {
+      localStorage.setItem(STORAGE_KEYS.SAVED_GAME, JSON.stringify(finalizedState));
+    } catch (error) {
+      console.warn('Failed to finalize game state:', error);
+    }
+  }
+};
+
+// Check if player can undo after game over
+export const canUndoAfterGameOver = (): boolean => {
+  const savedState = getSavedGameState();
+  return savedState?.canUndoAfterGameOver === true;
+};
+
+// Set the undo-after-game-over flag
+export const setCanUndoAfterGameOver = (canUndo: boolean): void => {
+  const savedState = getSavedGameState();
+  if (savedState) {
+    const updatedState: SavedGameState = {
+      ...savedState,
+      canUndoAfterGameOver: canUndo
+    };
+    try {
+      localStorage.setItem(STORAGE_KEYS.SAVED_GAME, JSON.stringify(updatedState));
+    } catch (error) {
+      console.warn('Failed to update undo-after-game-over flag:', error);
+    }
+  }
 };
