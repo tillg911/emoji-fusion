@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
 
@@ -9,6 +10,8 @@ interface ConfirmDialogProps {
   onCancel: () => void;
   confirmText?: string;
   cancelText?: string;
+  gridWidth?: number; // Width to match game grid and buttons
+  confirmVariant?: 'primary' | 'warning'; // Support warning style for cautionary actions
 }
 
 export const ConfirmDialog = ({
@@ -17,9 +20,13 @@ export const ConfirmDialog = ({
   message,
   onConfirm,
   onCancel,
-  confirmText = "Confirm",
-  cancelText = "Cancel"
+  confirmText,
+  cancelText,
+  gridWidth = 320,
+  confirmVariant = 'primary'
 }: ConfirmDialogProps) => {
+  const { t } = useTranslation();
+  
   if (!isOpen) return null;
 
   return (
@@ -39,11 +46,14 @@ export const ConfirmDialog = ({
       <div style={{
         backgroundColor: 'white',
         borderRadius: DESIGN_TOKENS.borderRadius.xl,
-        padding: DESIGN_TOKENS.spacing['3xl'],
+        padding: DESIGN_TOKENS.layout.popupPadding,
         boxShadow: DESIGN_TOKENS.boxShadow.xl,
-        maxWidth: '400px',
-        width: '90%',
+        width: 'fit-content',
+        minWidth: `${Math.max(gridWidth + 48, 328)}px`, // Add extra width for internal padding
+        maxWidth: '548px', // Accommodate larger content + padding
         textAlign: 'center',
+        border: '2px solid rgba(0, 0, 0, 0.1)',
+        boxSizing: 'border-box',
       }}>
         {/* Title */}
         <h3 style={{
@@ -70,29 +80,59 @@ export const ConfirmDialog = ({
         {/* Buttons */}
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           gap: DESIGN_TOKENS.spacing.md,
-          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          padding: `0 ${DESIGN_TOKENS.layout.popupContentPadding}`,
+          boxSizing: 'border-box',
         }}>
-          {/* Cancel Button */}
+          {/* Primary Action Button (Cancel - Return to name entry) */}
           <GameButton
             onClick={onCancel}
-            variant="secondary"
-            size="sm"
+            variant="primary"
+            size="md"
             fullWidth={false}
-            style={{ minWidth: '100px' }}
+            style={{ 
+              width: `${gridWidth}px`,
+              minWidth: '280px',
+              maxWidth: '500px',
+              minHeight: '56px',
+              fontSize: DESIGN_TOKENS.fontSize.base,
+              fontWeight: 'bold',
+              borderRadius: DESIGN_TOKENS.borderRadius.lg,
+              padding: `${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.spacing.lg}`,
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            ❌ {cancelText}
+            {cancelText || t('confirmDialog.cancel')}
           </GameButton>
 
-          {/* Confirm Button */}
+          {/* Warning Action Button (Confirm - Skip high score) */}
           <GameButton
             onClick={onConfirm}
-            variant="primary"
-            size="sm"
+            variant={confirmVariant === 'warning' ? 'warning' : 'primary'}
+            size="md"
             fullWidth={false}
-            style={{ minWidth: '100px' }}
+            style={{ 
+              width: `${gridWidth}px`,
+              minWidth: '280px',
+              maxWidth: '500px',
+              minHeight: '56px',
+              fontSize: DESIGN_TOKENS.fontSize.base,
+              fontWeight: 'bold',
+              borderRadius: DESIGN_TOKENS.borderRadius.lg,
+              padding: `${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.spacing.lg}`,
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            ✅ {confirmText}
+            {confirmText || t('confirmDialog.confirm')}
           </GameButton>
         </div>
       </div>

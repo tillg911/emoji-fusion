@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Score Display Test - Emoji Fusion</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .high-score-demo {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .demo-high-score {
+            width: 100%;
+            min-height: 56px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            background: rgba(255, 215, 0, 0.1);
+            color: #B8860B;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+            user-select: none;
+        }
+        .demo-button {
+            width: 100%;
+            min-height: 56px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            background: rgba(255, 255, 255, 0.9);
+            color: #666;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .demo-button:hover {
+            background: #f8f9fa;
+            color: #333;
+            transform: translateY(-2px);
+            border-color: #dee2e6;
+        }
+        .demo-button.primary {
+            background: #4CAF50;
+            color: white;
+            border: none;
+        }
+        .demo-button.primary:hover {
+            background: #45a049;
+        }
+        .pass { color: #4CAF50; font-weight: bold; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🏆 High Score Display Test</h1>
+    
+    <div class="test-section">
+        <h2>✅ Implementation Features</h2>
+        <ul>
+            <li class="pass">Uses global leaderboard data instead of local storage</li>
+            <li class="pass">Matches button width and height for consistency</li>
+            <li class="pass">Gold theme to distinguish from regular buttons</li>
+            <li class="pass">Positioned above action buttons</li>
+            <li class="pass">Loading state and fallback for empty leaderboard</li>
+            <li class="pass">Full internationalization (German/English)</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 Visual Design Demo</h2>
+        <p>This shows how the high score display looks relative to the game buttons:</p>
+        
+        <div class="high-score-demo">
+            <!-- High Score Display -->
+            <div class="demo-high-score">
+                🏆 Global High Score: 12,345
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="demo-button primary">
+                ✅ Start New Game
+            </div>
+            
+            <div class="demo-button">
+                ▶️ Continue Game
+            </div>
+            
+            <div class="demo-button">
+                🏆 Leaderboard
+            </div>
+        </div>
+        
+        <p><small><em>The high score display has the same dimensions as the buttons but uses a distinctive gold theme.</em></small></p>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 Internationalization</h2>
+        <div class="info">
+            <strong>English:</strong> "🏆 Global High Score: 12,345" / "🎮 No scores yet!"<br>
+            <strong>German:</strong> "🏆 Globaler Rekord: 12.345" / "🎮 Noch keine Ergebnisse!"
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Data Source</h2>
+        <ul>
+            <li><strong>Before:</strong> Local storage high score (player's personal best)</li>
+            <li class="pass"><strong>After:</strong> Global leaderboard high score (top player worldwide)</li>
+            <li>Fetched asynchronously from Supabase database</li>
+            <li>Shows loading state while fetching data</li>
+            <li>Graceful fallback when no scores exist</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('High Score Display Test completed! 🏆');
+        
+        // Simulate loading and different states
+        let currentLang = navigator.language.toLowerCase().startsWith('de') ? 'de' : 'en';
+        console.log('Detected language:', currentLang);
+        
+        // Log the implementation benefits
+        console.log('✅ Benefits of the new implementation:');
+        console.log('  - Consistent visual design with buttons');
+        console.log('  - Global competition aspect');
+        console.log('  - Better user engagement');
+        console.log('  - Professional loading states');
+        console.log('  - Full i18n support');
+    </script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplified In-Game UI - Emoji Fusion</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .game-layout-demo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+        .demo-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        .demo-score {
+            font-size: 20px;
+            color: #666;
+            font-weight: 600;
+            margin: 0;
+        }
+        .demo-home-button {
+            padding: 10px 24px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #666;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 120px;
+            min-height: 44px;
+            font-size: 14px;
+        }
+        .demo-home-button:hover {
+            background: #f8f9fa;
+            color: #333;
+            transform: translateY(-2px);
+        }
+        .demo-grid {
+            width: 320px;
+            height: 320px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #bbada0;
+            border-radius: 12px;
+            padding: 8px;
+        }
+        .demo-cell {
+            background: #cdc1b4;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .demo-undo-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            background: #ff9800;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 320px;
+            min-height: 48px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .demo-undo-button:hover {
+            background: #f57c00;
+            transform: translateY(-2px);
+        }
+        .demo-undo-button:disabled {
+            background: #ccc;
+            color: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .demo-instructions {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            opacity: 0.8;
+            max-width: 90%;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .before, .after {
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .before {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        .after {
+            background: #e8f5e8;
+            border-left: 4px solid #4CAF50;
+        }
+        .mobile-demo {
+            max-width: 350px;
+            margin: 0 auto;
+        }
+        .mobile-demo .demo-grid {
+            width: 280px;
+            height: 280px;
+        }
+        .mobile-demo .demo-undo-button {
+            width: 280px;
+            font-size: 14px;
+        }
+        .mobile-demo .demo-home-button {
+            min-width: 100px;
+            font-size: 13px;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        .check { color: #4CAF50; font-weight: bold; }
+        .removed { color: #f44336; font-weight: bold; }
+        .new { color: #2196F3; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Simplified In-Game UI Layout</h1>
+    
+    <div class="demo-section">
+        <h2>✅ New Layout Structure</h2>
+        <div class="game-layout-demo">
+            <div class="demo-title">Emoji Fusion</div>
+            <div class="demo-score">Score: 1,234</div>
+            
+            <!-- Home Button - Above Grid -->
+            <button class="demo-home-button">🏠 Home</button>
+            
+            <!-- Game Grid -->
+            <div class="demo-grid">
+                <div class="demo-cell">🎮</div>
+                <div class="demo-cell">⭐</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell">🎯</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell">🏆</div>
+                <div class="demo-cell">🎲</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell">🎪</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell">🎨</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell">🎭</div>
+                <div class="demo-cell">🎸</div>
+                <div class="demo-cell"></div>
+            </div>
+            
+            <!-- Undo Button - Below Grid -->
+            <button class="demo-undo-button">↩️ Undo Last Move</button>
+            
+            <!-- Instructions -->
+            <div class="demo-instructions">Use WASD or arrow keys to move • Swipe to move on mobile</div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>📱 Mobile Layout Demo</h2>
+        <div class="game-layout-demo mobile-demo">
+            <div class="demo-title" style="font-size: 24px;">Emoji Fusion</div>
+            <div class="demo-score" style="font-size: 18px;">Score: 5,678</div>
+            
+            <!-- Home Button - Above Grid -->
+            <button class="demo-home-button">🏠 Home</button>
+            
+            <!-- Game Grid -->
+            <div class="demo-grid">
+                <div class="demo-cell" style="font-size: 20px;">🎮</div>
+                <div class="demo-cell" style="font-size: 20px;">⭐</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell" style="font-size: 20px;">🎯</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell" style="font-size: 20px;">🏆</div>
+                <div class="demo-cell" style="font-size: 20px;">🎲</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell" style="font-size: 20px;">🎪</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell" style="font-size: 20px;">🎨</div>
+                <div class="demo-cell"></div>
+                <div class="demo-cell" style="font-size: 20px;">🎭</div>
+                <div class="demo-cell" style="font-size: 20px;">🎸</div>
+                <div class="demo-cell"></div>
+            </div>
+            
+            <!-- Undo Button - Below Grid -->
+            <button class="demo-undo-button">↩️ Undo Last Move (U)</button>
+            
+            <!-- Instructions -->
+            <div class="demo-instructions" style="font-size: 12px;">Swipe to move</div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>🔄 Before vs After Comparison</h2>
+        <div class="comparison">
+            <div class="before">
+                <h3>❌ Before</h3>
+                <ul class="feature-list">
+                    <li><span class="removed">❌</span> 3 buttons in horizontal row</li>
+                    <li><span class="removed">❌</span> Reset/Hold-to-Reset button</li>
+                    <li><span class="removed">❌</span> Controls above grid</li>
+                    <li><span class="removed">❌</span> Small buttons on mobile</li>
+                    <li><span class="removed">❌</span> Cramped layout</li>
+                </ul>
+            </div>
+            <div class="after">
+                <h3>✅ After</h3>
+                <ul class="feature-list">
+                    <li><span class="check">✅</span> Only 2 buttons total</li>
+                    <li><span class="new">🆕</span> Home button above grid</li>
+                    <li><span class="new">🆕</span> Undo button below grid</li>
+                    <li><span class="check">✅</span> Grid-width Undo button</li>
+                    <li><span class="check">✅</span> Clean, spacious layout</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>🎯 Implementation Details</h2>
+        <ul class="feature-list">
+            <li><strong>Components:</strong> Created HomeButton.tsx and UndoButton.tsx</li>
+            <li><strong>Removed:</strong> GameControls.tsx and HoldToResetButton.tsx</li>
+            <li><strong>Layout:</strong> Home above grid, Undo below grid and matches grid width</li>
+            <li><strong>Labels:</strong> "Undo Last Move" (EN) / "Letzten Zug rückgängig" (DE)</li>
+            <li><strong>Responsive:</strong> clamp() sizing and 48px minimum touch targets</li>
+            <li><strong>Keyboard:</strong> Shows (U) shortcut hint when physical keyboard detected</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>📐 Responsive Features</h2>
+        <ul class="feature-list">
+            <li><strong>Home Button:</strong> 44px min height, responsive padding and font size</li>
+            <li><strong>Undo Button:</strong> 48px min height, matches grid width (280px-500px)</li>
+            <li><strong>Touch Targets:</strong> All buttons meet accessibility guidelines</li>
+            <li><strong>Font Scaling:</strong> clamp(14px, 3.5vw, 16px) adapts to screen size</li>
+            <li><strong>Spacing:</strong> Viewport-based margins and padding</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('🎮 Simplified In-Game UI Demo Loaded!');
+        
+        // Log viewport info for responsive testing
+        const viewport = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            deviceType: window.innerWidth < 500 ? 'mobile' : window.innerWidth < 768 ? 'tablet' : 'desktop'
+        };
+        
+        console.log('Current viewport:', viewport);
+        console.log('✅ UI Simplification Complete:');
+        console.log('  - Reset button removed completely');
+        console.log('  - Home button moved above grid');
+        console.log('  - Undo button moved below grid with new label');
+        console.log('  - Responsive design for all screen sizes');
+        
+        // Test button interactions
+        document.querySelector('.demo-home-button').addEventListener('click', () => {
+            console.log('🏠 Home button clicked - would navigate to start screen');
+        });
+        
+        document.querySelector('.demo-undo-button').addEventListener('click', () => {
+            console.log('↩️ Undo button clicked - would undo last move');
+        });
+    </script>
+</body>
+</html>

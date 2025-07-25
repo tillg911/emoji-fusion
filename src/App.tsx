@@ -1,17 +1,44 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GameBoard } from './components/GameBoard';
 import { StartScreen } from './components/StartScreen';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { hasSavedGame, clearSavedGameState, addScoreToLeaderboard, finalizeCurrentGame } from './utils/storage';
 import { NameEntryModal } from './components/NameEntryModal';
+import { CELL_GAP } from './constants/styles';
 
 type GameState = 'start' | 'playing' | 'leaderboard';
 
 function App() {
+  const { t } = useTranslation();
   const [gameState, setGameState] = useState<GameState>('start');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showHighScoreConfirm, setShowHighScoreConfirm] = useState(false);
   const [shouldLoadSavedGame, setShouldLoadSavedGame] = useState(false);
+  
+  // Calculate standard button width based on game grid dimensions
+  const calculateGridButtonWidth = () => {
+    const baseCellSize = 100;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+    
+    const availableWidth = Math.max(viewportWidth - 100, 320);
+    const availableHeight = Math.max(viewportHeight - 350, 280);
+    
+    const cellSize = Math.min(
+      baseCellSize,
+      Math.floor((availableWidth - (3 * CELL_GAP)) / 4),
+      Math.floor((availableHeight - (3 * CELL_GAP)) / 4)
+    );
+    
+    const minCellSize = viewportWidth < 480 ? 50 : viewportWidth < 768 ? 65 : 75;
+    const actualCellSize = Math.max(cellSize, minCellSize);
+    
+    return (actualCellSize + CELL_GAP) * 4 - CELL_GAP;
+  };
+  
+  const standardButtonWidth = calculateGridButtonWidth();
   
   // App-level state for pending leaderboard entry
   const [pendingLeaderboardScore, setPendingLeaderboardScore] = useState<number | null>(null);
@@ -20,7 +47,7 @@ function App() {
   const startNewGame = () => {
     // Check if there's a pending leaderboard score
     if (pendingLeaderboardScore !== null) {
-      setShowNameEntryModal(true);
+      setShowHighScoreConfirm(true);
       return;
     }
     
@@ -84,7 +111,7 @@ function App() {
   const handleNameCancel = async () => {
     if (pendingLeaderboardScore !== null) {
       try {
-        await addScoreToLeaderboard(pendingLeaderboardScore, 'Anonymous');
+        await addScoreToLeaderboard(pendingLeaderboardScore, t('common.anonymous'));
       } catch (error) {
         console.error('Failed to save score to leaderboard:', error);
       }
@@ -100,6 +127,22 @@ function App() {
 
   const cancelNewGame = () => {
     setShowConfirmDialog(false);
+  };
+
+  const confirmSkipHighScore = () => {
+    // User confirms they want to skip submitting the high score
+    setPendingLeaderboardScore(null);
+    setShowHighScoreConfirm(false);
+    // Clear saved game and start new game
+    clearSavedGameState();
+    setShouldLoadSavedGame(false);
+    setGameState('playing');
+  };
+
+  const cancelSkipHighScore = () => {
+    // User wants to enter their name - show name entry modal
+    setShowHighScoreConfirm(false);
+    setShowNameEntryModal(true);
   };
 
   return (
@@ -124,15 +167,29 @@ function App() {
         />
       )}
       
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog for existing saved game */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
-        title="Start New Game?"
-        message="You already have a game in progress. Are you sure you want to start over?"
+        title={t('confirmDialog.startNewGameTitle')}
+        message={t('confirmDialog.startNewGameMessage')}
         onConfirm={confirmNewGame}
         onCancel={cancelNewGame}
-        confirmText="Start New Game"
-        cancelText="Cancel"
+        confirmText={t('confirmDialog.startNewGame')}
+        cancelText={t('confirmDialog.cancel')}
+        gridWidth={standardButtonWidth}
+      />
+      
+      {/* Confirmation Dialog for pending high score */}
+      <ConfirmDialog
+        isOpen={showHighScoreConfirm}
+        title={t('confirmDialog.skipHighScoreTitle')}
+        message={t('confirmDialog.skipHighScoreMessage')}
+        onConfirm={confirmSkipHighScore}
+        onCancel={cancelSkipHighScore}
+        confirmText={t('confirmDialog.skipHighScoreConfirm')}
+        cancelText={t('confirmDialog.skipHighScoreCancel')}
+        gridWidth={standardButtonWidth}
+        confirmVariant="warning"
       />
       
       {/* Name Entry Modal for pending high scores */}

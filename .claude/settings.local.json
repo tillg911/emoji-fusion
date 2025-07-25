@@ -8,7 +8,11 @@
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(mkdir:*)",
+      "Bash(node test-player-names.js)",
+      "Bash(node:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

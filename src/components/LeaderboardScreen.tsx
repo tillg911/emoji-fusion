@@ -1,17 +1,46 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getLeaderboard, LeaderboardEntry } from '../utils/storage';
 import { GameButton } from './GameButton';
 import { ResponsiveContainer } from './ResponsiveContainer';
+import { useResponsive } from '../hooks/useResponsive';
+import { safePlayerName } from '../utils/playerNameUtils';
 import { EMOJI_MAP } from '../constants/emojis';
 import { DESIGN_TOKENS } from '../constants/design-system';
+import { CELL_GAP } from '../constants/styles';
 
 interface LeaderboardScreenProps {
   onBackToHome: () => void;
 }
 
 export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
+  const { t } = useTranslation();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { isMobile } = useResponsive();
+
+  // Calculate button width based on game grid dimensions for consistency
+  const calculateGridButtonWidth = () => {
+    const baseCellSize = 100;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+    
+    const availableWidth = Math.max(viewportWidth - 100, 320);
+    const availableHeight = Math.max(viewportHeight - 350, 280);
+    
+    const cellSize = Math.min(
+      baseCellSize,
+      Math.floor((availableWidth - (3 * CELL_GAP)) / 4),
+      Math.floor((availableHeight - (3 * CELL_GAP)) / 4)
+    );
+    
+    const minCellSize = viewportWidth < 480 ? 50 : viewportWidth < 768 ? 65 : 75;
+    const actualCellSize = Math.max(cellSize, minCellSize);
+    
+    return (actualCellSize + CELL_GAP) * 4 - CELL_GAP;
+  };
+
+  const gridButtonWidth = calculateGridButtonWidth();
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -29,7 +58,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
     loadLeaderboard();
   }, []);
 
-  const topScores = leaderboard.slice(0, 10); // Show only top 10 scores
+  const topScores = leaderboard.slice(0, 100); // Show top 100 scores
 
   return (
     <ResponsiveContainer>
@@ -42,17 +71,19 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         margin: '0',
         textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}>
-        🏆 Leaderboard
+{t('leaderboard.title')}
       </div>
 
       {/* Leaderboard Container */}
       <div style={{
         width: '100%',
-        maxWidth: '500px',
+        maxWidth: isMobile ? '100%' : '500px',
         backgroundColor: 'white',
         borderRadius: DESIGN_TOKENS.borderRadius.xl,
         boxShadow: DESIGN_TOKENS.boxShadow.overlay,
-        padding: `clamp(${DESIGN_TOKENS.spacing.xl}, 4vh, ${DESIGN_TOKENS.spacing['3xl']})`,
+        padding: isMobile 
+          ? `${DESIGN_TOKENS.spacing.lg} ${DESIGN_TOKENS.spacing.md}` 
+          : `clamp(${DESIGN_TOKENS.spacing.xl}, 4vh, ${DESIGN_TOKENS.spacing['3xl']})`,
         minHeight: 'clamp(300px, 50vh, 400px)',
         maxHeight: '60vh',
         display: 'flex',
@@ -81,7 +112,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
               fontWeight: 'bold',
               color: '#333',
             }}>
-              Loading leaderboard...
+{t('leaderboard.loading')}
             </div>
           </div>
         ) : topScores.length > 0 ? (
@@ -93,7 +124,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
               textAlign: 'center',
               marginBottom: DESIGN_TOKENS.spacing.xl,
             }}>
-              Top Scores
+{t('leaderboard.topScores')}
             </div>
             
             <div style={{
@@ -110,10 +141,18 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                   <div
                     key={`${entry.score}-${entry.name}-${index}`}
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
+                      position: 'relative',
+                      display: 'grid',
+                      gridTemplateColumns: isMobile 
+                        ? '32px 1fr 60px 80px' 
+                        : '40px 1fr 80px 100px',
                       alignItems: 'center',
-                      padding: `${DESIGN_TOKENS.spacing.lg} ${DESIGN_TOKENS.spacing.xl}`,
+                      gap: isMobile 
+                        ? DESIGN_TOKENS.spacing.sm
+                        : DESIGN_TOKENS.spacing.md,
+                      padding: isMobile 
+                        ? `${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.spacing.sm}` 
+                        : `${DESIGN_TOKENS.spacing.lg} ${DESIGN_TOKENS.spacing.xl}`,
                       backgroundColor: isFirst 
                         ? 'rgba(255, 215, 0, 0.12)' 
                         : isTop3 
@@ -134,80 +173,83 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
+                    {/* Rank */}
+                    <div style={{
+                      fontSize: isMobile ? DESIGN_TOKENS.fontSize.base : DESIGN_TOKENS.fontSize.lg,
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                      color: isFirst 
+                        ? '#FFD700' 
+                        : index === 1 
+                          ? '#C0C0C0' 
+                          : index === 2 
+                            ? '#CD7F32' 
+                            : '#666',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {isFirst ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${entry.rank}`}
+                    </div>
+                    
+                    {/* Player Name - Protected from i18n translation */}
+                    <div style={{
+                      fontSize: isMobile ? DESIGN_TOKENS.fontSize.sm : DESIGN_TOKENS.fontSize.base,
+                      fontWeight: '500',
+                      color: '#333',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: '0',
+                    }}>
+                      <span lang="und" suppressHydrationWarning>
+                        {safePlayerName(entry.name)}
+                      </span>
+                    </div>
+                    
+                    {/* Highest Tile - Fixed width for consistent alignment */}
                     <div style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
                       alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: DESIGN_TOKENS.spacing.xs,
+                      color: '#666',
+                      fontWeight: '500',
+                      fontSize: isMobile ? DESIGN_TOKENS.fontSize.xs : DESIGN_TOKENS.fontSize.sm,
+                      textAlign: 'center',
                       width: '100%',
-                      gap: 'clamp(12px, 2vh, 16px)',
+                      position: 'relative',
                     }}>
-                      {/* Left: Rank + Player Name */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: DESIGN_TOKENS.spacing.lg,
-                        flex: '1',
-                        minWidth: '0', // Allow text truncation if needed
+                      <span style={{ 
+                        fontSize: isMobile ? DESIGN_TOKENS.fontSize.sm : DESIGN_TOKENS.fontSize.base,
+                        lineHeight: '1',
                       }}>
-                        {/* Rank with special styling */}
-                        <div style={{
-                          fontSize: DESIGN_TOKENS.fontSize.lg,
-                          fontWeight: 'bold',
-                          minWidth: 'clamp(30px, 4vh, 35px)',
-                          textAlign: 'center',
-                          color: isFirst 
-                            ? '#FFD700' 
-                            : index === 1 
-                              ? '#C0C0C0' 
-                              : index === 2 
-                                ? '#CD7F32' 
-                                : '#666',
-                        }}>
-                          {isFirst ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${entry.rank}`}
-                        </div>
-                        
-                        {/* Player Name */}
-                        <div style={{
-                          fontSize: DESIGN_TOKENS.fontSize.base,
-                          fontWeight: '500',
-                          color: '#333',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {entry.name}
-                        </div>
-                      </div>
-                      
-                      {/* Center: Highest Tile Emoji + Level */}
-                      <div style={{
-                        fontSize: DESIGN_TOKENS.fontSize.sm,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: DESIGN_TOKENS.spacing.xs,
-                        color: '#666',
-                        fontWeight: '500',
-                        minWidth: 'clamp(50px, 8vh, 60px)',
+                        {EMOJI_MAP.get(entry.highestTile || 1) || '❓'}
+                      </span>
+                      <span style={{
+                        fontSize: isMobile ? DESIGN_TOKENS.fontSize.xs : DESIGN_TOKENS.fontSize.sm,
+                        lineHeight: '1',
+                        minWidth: isMobile ? '16px' : '20px',
+                        textAlign: 'left',
                       }}>
-                        <span style={{ fontSize: DESIGN_TOKENS.fontSize.base }}>
-                          {EMOJI_MAP.get(entry.highestTile || 1) || '❓'}
-                        </span>
-                        <span>
-                          {entry.highestTile || 1}
-                        </span>
-                      </div>
-                      
-                      {/* Right: Score */}
-                      <div style={{
-                        fontSize: DESIGN_TOKENS.fontSize.base,
-                        fontWeight: '600',
-                        color: '#333',
-                        textAlign: 'right',
-                        minWidth: 'clamp(60px, 10vh, 80px)',
-                      }}>
-                        {entry.score.toLocaleString()}
-                      </div>
+                        {entry.highestTile || 1}
+                      </span>
+                    </div>
+                    
+                    {/* Score - Fixed width for consistent layout */}
+                    <div style={{
+                      fontSize: isMobile ? DESIGN_TOKENS.fontSize.sm : DESIGN_TOKENS.fontSize.base,
+                      fontWeight: '600',
+                      color: '#333',
+                      textAlign: 'right',
+                      whiteSpace: 'nowrap',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                    }}>
+                      {entry.score.toLocaleString()}
                     </div>
                   </div>
                 );
@@ -236,13 +278,13 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
               marginBottom: DESIGN_TOKENS.spacing.sm,
               color: '#333',
             }}>
-              No Scores Yet
+{t('leaderboard.noScores')}
             </div>
             <div style={{
               fontSize: DESIGN_TOKENS.fontSize.base,
               lineHeight: '1.5',
             }}>
-              Play your first game to start building your leaderboard!
+{t('leaderboard.noScoresDescription')}
             </div>
           </div>
         )}
@@ -251,13 +293,18 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
       {/* Home Button */}
       <div style={{
         width: '100%',
-        maxWidth: DESIGN_TOKENS.layout.buttonMaxWidth,
+        maxWidth: `${gridButtonWidth}px`,
       }}>
         <GameButton 
           onClick={onBackToHome}
           variant="secondary"
+          style={{
+            width: `${gridButtonWidth}px`,
+            minWidth: '280px',
+            maxWidth: '500px',
+          }}
         >
-          🏠 Home
+{t('leaderboard.home')}
         </GameButton>
       </div>
     </ResponsiveContainer>

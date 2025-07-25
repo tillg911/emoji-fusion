@@ -64,7 +64,7 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
       .from('leaderboard')
       .select('*')
       .order('score', { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) {
       console.warn('Failed to fetch leaderboard from Supabase:', error);
@@ -101,7 +101,7 @@ export const addScoreToLeaderboard = async (score: number, name: string = 'Anony
       return false;
     }
 
-    // Check if the score made it to top 10 by fetching the leaderboard
+    // Check if the score made it to top 100 by fetching the leaderboard
     const leaderboard = await getLeaderboard();
     return leaderboard.some(entry => entry.score === score && entry.name === cleanName);
   } catch (error) {
@@ -112,7 +112,7 @@ export const addScoreToLeaderboard = async (score: number, name: string = 'Anony
 
 export const isTopScore = async (score: number): Promise<boolean> => {
   const leaderboard = await getLeaderboard();
-  return leaderboard.length < 10 || score > leaderboard[leaderboard.length - 1]?.score;
+  return leaderboard.length < 100 || score > leaderboard[leaderboard.length - 1]?.score;
 };
 
 // Game State Management

@@ -30,7 +30,7 @@ export interface Database {
   };
 }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'your-public-anon-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cmyhfwogyzpmpyrxkahl.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteWhmd29neXpwbXB5cnhrYWhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NTc0MDcsImV4cCI6MjA2OTAzMzQwN30.FdKq0u43jrHxUZZiUv6HJd8h-cd-TjnCRwGuhamReAc';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);

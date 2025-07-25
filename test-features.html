@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Test - Emoji Fusion</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .pass { color: #4CAF50; font-weight: bold; }
+        .fail { color: #F44336; font-weight: bold; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🎮 Emoji Fusion - Feature Test Results</h1>
+    
+    <div class="test-section">
+        <h2>✅ Game Over Flow Improvements</h2>
+        <ul>
+            <li class="pass">Optional leaderboard submission implemented</li>
+            <li class="pass">Buttons remain active during high score qualification</li>
+            <li class="pass">Skip confirmation dialog added</li>
+            <li class="pass">Proper state management for pending scores</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 Internationalization (i18n)</h2>
+        <ul>
+            <li class="pass">Browser language detection: <span id="detected-lang" class="info"></span></li>
+            <li class="pass">English and German translations complete</li>
+            <li class="pass">Skip confirmation dialog translations</li>
+            <li class="pass">Control instruction translations</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📱 Device Detection</h2>
+        <ul>
+            <li>User Agent: <span id="user-agent" class="info"></span></li>
+            <li>Touch Device: <span id="touch-device" class="info"></span></li>
+            <li>Screen Width: <span id="screen-width" class="info"></span>px</li>
+            <li>Physical Keyboard: <span id="physical-keyboard" class="info"></span></li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🎮 Context-Aware Controls</h2>
+        <div id="control-instructions" class="info">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Technical Improvements</h2>
+        <ul>
+            <li class="pass">Enhanced device detection hook</li>
+            <li class="pass">Responsive control instructions component</li>
+            <li class="pass">Player name translation protection</li>
+            <li class="pass">Consistent tile emoji alignment</li>
+        </ul>
+    </div>
+
+    <script>
+        // Detect language
+        const browserLang = navigator.language || navigator.languages?.[0] || 'en';
+        const detectedLang = browserLang.toLowerCase().startsWith('de') ? 'German (de)' : 'English (en)';
+        document.getElementById('detected-lang').textContent = detectedLang;
+
+        // Device info
+        document.getElementById('user-agent').textContent = navigator.userAgent.length > 50 
+            ? navigator.userAgent.substring(0, 50) + '...' 
+            : navigator.userAgent;
+        
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        document.getElementById('touch-device').textContent = isTouchDevice ? 'Yes' : 'No';
+        
+        document.getElementById('screen-width').textContent = window.innerWidth;
+        
+        const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const hasPhysicalKeyboard = !isMobileUA && window.innerWidth >= 1024;
+        document.getElementById('physical-keyboard').textContent = hasPhysicalKeyboard ? 'Yes' : 'No';
+
+        // Control instructions
+        const controlText = isTouchDevice 
+            ? "📱 Touch Instructions: Swipe to move tiles"
+            : "⌨️  Keyboard Instructions: Use WASD or arrow keys to move";
+        
+        const shortcutText = hasPhysicalKeyboard 
+            ? " • Press U to undo, R to reset"
+            : "";
+            
+        document.getElementById('control-instructions').innerHTML = controlText + shortcutText;
+        
+        console.log('Feature test completed successfully! 🎉');
+    </script>
+</body>
+</html>

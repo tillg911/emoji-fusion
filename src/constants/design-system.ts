@@ -73,6 +73,11 @@ export const DESIGN_TOKENS = {
     gameGridMaxSize: '450px',
     buttonMaxWidth: '320px',
     buttonMinHeight: 'clamp(56px, 8vh, 64px)',
+    // Standard grid-based button width calculation
+    gridButtonWidth: 'calc((100px * 4) + (8px * 3))', // Default: 4 cells + 3 gaps
+    // Popup padding to prevent button edge touching
+    popupPadding: 'clamp(24px, 4vh, 48px)',
+    popupContentPadding: 'clamp(20px, 3vh, 32px)',
   },
 } as const;
 

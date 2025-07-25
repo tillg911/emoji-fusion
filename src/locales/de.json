@@ -1,0 +1,74 @@
+{
+  "app": {
+    "title": "🎮 Emoji Fusion",
+    "description": "Verbinde Kacheln mit demselben Emoji, um neue zu erstellen! Verwende die Pfeiltasten, um Kacheln zu bewegen und die höchste Punktzahl zu erreichen."
+  },
+  "startScreen": {
+    "highScore": "🏆 Rekord: {{score}}",
+    "globalHighScore": "🏆 Globaler Rekord: {{score}}",
+    "noScoresYet": "🎮 Noch keine Ergebnisse!",
+    "startNewGame": "✅ Neues Spiel",
+    "continueGame": "▶️ Spiel fortsetzen",
+    "leaderboard": "🏆 Bestenliste"
+  },
+  "gameControls": {
+    "home": "🏠 Start",
+    "undo": "↩️ Letzten Zug rückgängig",
+    "undoShortcut": "↩️ Letzten Zug rückgängig (U)"
+  },
+  "gameOver": {
+    "title": "Spiel beendet!",
+    "finalScore": "Endpunktzahl: {{score}}",
+    "checkingLeaderboard": "⏳ Prüfe Bestenliste...",
+    "savingScore": "💾 Speichere Punktzahl...",
+    "topScore": "🎉 Top 100 Punktzahl! Gib deinen Namen ein:",
+    "enterName": "Namen eingeben (max. 12 Zeichen)",
+    "saveScore": "💾 Punktzahl speichern",
+    "saving": "⏳ Speichern...",
+    "scoreSaved": "✅ Punktzahl in Bestenliste gespeichert!",
+    "newGame": "✅ Neues Spiel",
+    "mainMenu": "🏠 Hauptmenü",
+    "pleaseWait": "⏳ Bitte warten...",
+    "skipHighScore": "Du hast einen Rekord erreicht! Bist du sicher, dass du ihn nicht einreichen möchtest?",
+    "skipConfirm": "⚠️ Neues Spiel starten!",
+    "skipCancel": "Namen eingeben"
+  },
+  "leaderboard": {
+    "title": "🏆 Bestenliste",
+    "topScores": "Beste Ergebnisse",
+    "loading": "Lade Bestenliste...",
+    "noScores": "Noch keine Ergebnisse",
+    "noScoresDescription": "Spiele dein erstes Spiel, um deine Bestenliste aufzubauen!",
+    "home": "🏠 Start"
+  },
+  "nameEntry": {
+    "newHighScore": "🎉 Neuer Rekord!",
+    "score": "Punktzahl: {{score}}",
+    "enterNamePrompt": "Gib deinen Namen für die Bestenliste ein:",
+    "namePlaceholder": "Dein Name (max. 12 Zeichen)",
+    "skip": "Überspringen",
+    "saveScore": "Punktzahl speichern",
+    "charactersRemaining": "{{current}}/{{max}} Zeichen"
+  },
+  "confirmDialog": {
+    "confirm": "Bestätigen",
+    "cancel": "Abbrechen",
+    "startNewGame": "Neues Spiel starten",
+    "startNewGameTitle": "Neues Spiel starten?",
+    "startNewGameMessage": "Du hast bereits ein Spiel in Bearbeitung. Bist du sicher, dass du von vorne anfangen möchtest?",
+    "skipHighScoreTitle": "Rekord überspringen?",
+    "skipHighScoreMessage": "Du hast einen Rekord erreicht! Bist du sicher, dass du ihn nicht einreichen möchtest?",
+    "skipHighScoreConfirm": "⚠️ Neues Spiel starten!",
+    "skipHighScoreCancel": "Namen eingeben"
+  },
+  "controls": {
+    "keyboardInstructions": "Verwende WASD oder Pfeiltasten zum Bewegen",
+    "touchInstructions": "Wischen zum Bewegen",
+    "keyboardShortcuts": "Drücke U für Rückgängig, R zum Zurücksetzen",
+    "restartGame": "Spiel neu starten"
+  },
+  "common": {
+    "anonymous": "Anonym",
+    "player": "Spieler"
+  }
+}

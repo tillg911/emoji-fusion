@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Detection Test</title>
+</head>
+<body>
+    <h1>Language Detection Test</h1>
+    <p>Current browser language: <span id="browserLang"></span></p>
+    <p>Detected language for app: <span id="detectedLang"></span></p>
+    
+    <script type="module">
+        // Test the language detection
+        import { detectLanguage } from './src/utils/languageDetection.ts';
+        
+        document.getElementById('browserLang').textContent = navigator.language;
+        document.getElementById('detectedLang').textContent = detectLanguage();
+        
+        console.log('Browser language:', navigator.language);
+        console.log('Browser languages:', navigator.languages);
+        console.log('Detected language:', detectLanguage());
+    </script>
+</body>
+</html>

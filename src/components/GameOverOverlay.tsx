@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
 
@@ -7,9 +8,11 @@ interface GameOverOverlayProps {
   onRestart: () => void;
   onMainMenu: () => void;
   onNameSubmit?: (name: string) => void;
+  onSkipHighScore?: () => void;
   isCheckingScore?: boolean;
   isSavingScore?: boolean;
   qualifiesForLeaderboard?: boolean;
+  gridWidth: number; // Width of the game grid to match all elements
 }
 
 export const GameOverOverlay = ({ 
@@ -17,13 +20,33 @@ export const GameOverOverlay = ({
   onRestart, 
   onMainMenu, 
   onNameSubmit,
+  onSkipHighScore,
   isCheckingScore = false,
   isSavingScore = false,
-  qualifiesForLeaderboard = false
+  qualifiesForLeaderboard = false,
+  gridWidth
 }: GameOverOverlayProps) => {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
-  const [name, setName] = useState('Player');
+  const [name, setName] = useState(t('common.player'));
   const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+
+  // Consistent styling for all interactive elements - matches game grid width
+  const consistentElementStyle = {
+    width: `${gridWidth}px`,
+    minWidth: '280px',
+    maxWidth: '500px',
+    minHeight: '56px',
+    fontSize: DESIGN_TOKENS.fontSize.base,
+    fontWeight: 'bold',
+    borderRadius: DESIGN_TOKENS.borderRadius.lg,
+    padding: `${DESIGN_TOKENS.spacing.md} ${DESIGN_TOKENS.spacing.lg}`,
+    boxSizing: 'border-box' as const,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
 
   // Trigger fade-in animation on mount
   useEffect(() => {
@@ -36,8 +59,8 @@ export const GameOverOverlay = ({
 
   const handleNameSubmit = () => {
     if (onNameSubmit && name.trim() && !isSavingScore) {
+      setHasSubmittedScore(true); // Mark immediately to prevent double submission
       onNameSubmit(name.trim());
-      setHasSubmittedScore(true);
     }
   };
   
@@ -55,162 +78,289 @@ export const GameOverOverlay = ({
     }
   };
 
+  const handleRestartClick = () => {
+    if (qualifiesForLeaderboard && !hasSubmittedScore && !isSavingScore) {
+      setShowSkipConfirm(true);
+    } else {
+      onRestart();
+    }
+  };
+
+  const handleMainMenuClick = () => {
+    // Always go to main menu without confirmation
+    // Pending high score will be handled on the Start Screen
+    onMainMenu();
+  };
+
+  const handleSkipConfirm = () => {
+    setShowSkipConfirm(false);
+    setHasSubmittedScore(true); // Mark as submitted to prevent further prompts
+    if (onSkipHighScore) {
+      onSkipHighScore();
+    }
+    // Only restart for the restart button, not main menu
+    onRestart();
+  };
+
+  const handleSkipCancel = () => {
+    setShowSkipConfirm(false);
+    // User cancels - they can still interact with the Game Over screen normally
+    // Focus back on the name input if it exists
+    setTimeout(() => {
+      const nameInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+      if (nameInput && qualifiesForLeaderboard && !hasSubmittedScore) {
+        nameInput.focus();
+      }
+    }, 100);
+  };
+
   return (
     <div
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
+        width: '100vw',
+        height: '100vh',
         backgroundColor: 'rgba(0, 0, 0, 0.85)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: DESIGN_TOKENS.borderRadius.lg,
+        justifyContent: 'flex-start', // Changed to flex-start to prevent overlap
         color: 'white',
         fontSize: DESIGN_TOKENS.fontSize.xl,
         fontWeight: 'bold',
         zIndex: 1000,
         backdropFilter: 'blur(3px)',
-        padding: `clamp(${DESIGN_TOKENS.spacing.lg}, 3vh, ${DESIGN_TOKENS.spacing['2xl']})`,
+        padding: `clamp(${DESIGN_TOKENS.spacing.lg}, 4vh, ${DESIGN_TOKENS.spacing['3xl']}) clamp(${DESIGN_TOKENS.spacing.md}, 3vw, ${DESIGN_TOKENS.spacing['2xl']})`,
+        paddingBottom: showSkipConfirm 
+          ? 'clamp(140px, 25vh, 200px)' // More space when nested popup is shown (increased for better mobile support)
+          : 'clamp(80px, 15vh, 120px)', // Reserve space for Undo button
         boxSizing: 'border-box',
         opacity: isVisible ? 1 : 0,
         transition: `opacity 1s ease-in-out`,
+        overflow: showSkipConfirm ? 'hidden' : 'auto', // Prevent scrolling when nested popup is shown to avoid layout issues
+      }}
+    >
+      {/* Game Over Content Container - Matches grid width with extra space for nested popups */}
+      <div style={{
+        width: 'fit-content',
+        minWidth: `${gridWidth}px`,
+        maxWidth: `max(${gridWidth}px, min(90vw, 500px))`,
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        borderRadius: DESIGN_TOKENS.borderRadius.xl,
+        padding: showSkipConfirm 
+          ? `clamp(${DESIGN_TOKENS.spacing['3xl']}, 8vh, ${DESIGN_TOKENS.spacing['4xl']})` // Extra padding when nested popup is shown
+          : `clamp(${DESIGN_TOKENS.spacing.xl}, 5vh, ${DESIGN_TOKENS.spacing['4xl']})`,
+        border: '2px solid rgba(255, 255, 255, 0.15)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: `clamp(${DESIGN_TOKENS.spacing.md}, 2vh, ${DESIGN_TOKENS.spacing.lg})`, // Uniform spacing between all elements
+        marginTop: showSkipConfirm 
+          ? 'clamp(10px, 4vh, 30px)' // Reduced top margin when nested popup is shown to prevent overflow
+          : 'clamp(20px, 8vh, 60px)', // Dynamic top margin to center content
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+        minHeight: showSkipConfirm ? 'auto' : undefined, // Allow natural height expansion for nested popups
+        maxHeight: showSkipConfirm 
+          ? 'calc(100vh - 200px)' // Constrain height when nested popup is shown to prevent overflow
+          : 'calc(100vh - 140px)', // Normal constraint
       }}
     >
       <div style={{ 
-        marginBottom: DESIGN_TOKENS.spacing.xl,
-        fontSize: DESIGN_TOKENS.fontSize.xl,
+        fontSize: `clamp(${DESIGN_TOKENS.fontSize.lg}, 4vw, ${DESIGN_TOKENS.fontSize.xl})`,
+        textAlign: 'center',
+        margin: 0,
       }}>
-        Game Over!
+{t('gameOver.title')}
       </div>
       <div style={{ 
-        fontSize: DESIGN_TOKENS.fontSize.base, 
-        marginBottom: DESIGN_TOKENS.spacing['2xl'], 
+        fontSize: `clamp(${DESIGN_TOKENS.fontSize.sm}, 3vw, ${DESIGN_TOKENS.fontSize.base})`, 
         opacity: 0.9,
         textAlign: 'center',
+        margin: 0,
       }}>
-        Final Score: {score.toLocaleString()}
+{t('gameOver.finalScore', { score: score.toLocaleString() })}
       </div>
 
       {/* Loading state while checking score */}
       {isCheckingScore && (
         <div style={{
-          marginBottom: DESIGN_TOKENS.spacing['2xl'],
           textAlign: 'center',
           color: '#FFD700',
+          fontSize: DESIGN_TOKENS.fontSize.base,
+          fontWeight: 'bold',
         }}>
-          <div style={{
-            fontSize: DESIGN_TOKENS.fontSize.base,
-            fontWeight: 'bold',
-          }}>
-            ⏳ Checking leaderboard...
-          </div>
+{t('gameOver.checkingLeaderboard')}
         </div>
       )}
       
       {/* Loading state while saving score */}
       {isSavingScore && (
         <div style={{
-          marginBottom: DESIGN_TOKENS.spacing['2xl'],
           textAlign: 'center',
           color: '#FFD700',
+          fontSize: DESIGN_TOKENS.fontSize.base,
+          fontWeight: 'bold',
         }}>
-          <div style={{
-            fontSize: DESIGN_TOKENS.fontSize.base,
-            fontWeight: 'bold',
-          }}>
-            💾 Saving score...
-          </div>
+{t('gameOver.savingScore')}
         </div>
       )}
 
       {/* Name Input for Qualifying Scores */}
       {!isCheckingScore && !isSavingScore && qualifiesForLeaderboard && !hasSubmittedScore && (
         <div style={{
-          marginBottom: DESIGN_TOKENS.spacing['2xl'],
           width: '100%',
-          maxWidth: '300px',
-          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: `clamp(${DESIGN_TOKENS.spacing.sm}, 2vh, ${DESIGN_TOKENS.spacing.md})`,
         }}>
           <div style={{
             fontSize: DESIGN_TOKENS.fontSize.sm,
             color: '#FFD700',
             fontWeight: 'bold',
-            marginBottom: DESIGN_TOKENS.spacing.md,
+            textAlign: 'center',
           }}>
-            🎉 Top 10 Score! Enter your name:
+{t('gameOver.topScore')}
           </div>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 12))}
             onKeyPress={handleKeyPress}
-            placeholder="Enter name (max 12 chars)"
+            placeholder={t('gameOver.enterName')}
             autoFocus
             style={{
-              width: '100%',
-              padding: DESIGN_TOKENS.spacing.md,
-              fontSize: DESIGN_TOKENS.fontSize.sm,
+              ...consistentElementStyle,
               border: '2px solid #FFD700',
-              borderRadius: DESIGN_TOKENS.borderRadius.lg,
               textAlign: 'center',
               backgroundColor: 'rgba(255, 255, 255, 0.9)',
               color: '#333',
-              marginBottom: DESIGN_TOKENS.spacing.lg,
               outline: 'none',
-              boxSizing: 'border-box',
             }}
           />
           <GameButton 
             onClick={handleNameSubmit}
             variant="primary"
-            size="sm"
+            size="md"
             disabled={isSavingScore || !name.trim()}
+            style={consistentElementStyle}
           >
-            {isSavingScore ? '⏳ Saving...' : '💾 Save Score'}
+{isSavingScore ? t('gameOver.saving') : t('gameOver.saveScore')}
           </GameButton>
         </div>
       )}
 
       {qualifiesForLeaderboard && hasSubmittedScore && (
         <div style={{
-          fontSize: DESIGN_TOKENS.fontSize.sm,
+          fontSize: DESIGN_TOKENS.fontSize.base,
           color: '#4CAF50',
           fontWeight: 'bold',
-          marginBottom: DESIGN_TOKENS.spacing['2xl'],
           textAlign: 'center',
         }}>
-          ✅ Score saved to leaderboard!
+{t('gameOver.scoreSaved')}
         </div>
       )}
       
-      {/* Button Container */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: DESIGN_TOKENS.spacing.lg,
-        alignItems: 'center',
-        width: '100%',
-        maxWidth: DESIGN_TOKENS.layout.buttonMaxWidth,
-      }}>
-        <GameButton 
-          onClick={onRestart}
-          disabled={isCheckingScore || isSavingScore || (qualifiesForLeaderboard && !hasSubmittedScore)}
-          variant="primary"
-        >
-          {isCheckingScore || isSavingScore ? '⏳ Please wait...' : '✅ New Game'}
-        </GameButton>
-        
-        <GameButton 
-          onClick={onMainMenu}
-          disabled={isCheckingScore || isSavingScore || (qualifiesForLeaderboard && !hasSubmittedScore)}
-          variant="secondary"
-        >
-          {isCheckingScore || isSavingScore ? '⏳ Please wait...' : '🏠 Main Menu'}
-        </GameButton>
+      {/* Skip Confirmation Dialog */}
+      {showSkipConfirm && (
+        <div style={{
+          textAlign: 'center',
+          backgroundColor: 'rgba(255, 215, 0, 0.1)',
+          padding: DESIGN_TOKENS.layout.popupPadding,
+          borderRadius: DESIGN_TOKENS.borderRadius.lg,
+          border: '2px solid rgba(255, 215, 0, 0.4)',
+          width: `${gridWidth}px`, // Match exactly the outer container width
+          minWidth: '280px',
+          maxWidth: '500px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: DESIGN_TOKENS.spacing.lg,
+          boxSizing: 'border-box',
+          margin: `${DESIGN_TOKENS.spacing['2xl']} 0 ${DESIGN_TOKENS.spacing['3xl']} 0`, // Extra bottom margin to prevent touching
+          position: 'relative', // Ensure proper stacking context
+          zIndex: 1, // Ensure it's above other content
+          opacity: 1,
+          transition: 'opacity 0.3s ease-in-out', // Smooth appearance
+        }}>
+          <div style={{
+            fontSize: DESIGN_TOKENS.fontSize.base,
+            color: '#FFD700',
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}>
+            {t('gameOver.skipHighScore')}
+          </div>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: DESIGN_TOKENS.spacing.md,
+            alignItems: 'center',
+            width: '100%',
+            padding: `0 ${DESIGN_TOKENS.layout.popupContentPadding}`,
+            boxSizing: 'border-box',
+          }}>
+            {/* Primary Action - Return to name entry */}
+            <GameButton 
+              onClick={handleSkipCancel}
+              variant="primary"
+              size="md"
+              style={{
+                ...consistentElementStyle,
+                width: `calc(${gridWidth}px - ${DESIGN_TOKENS.layout.popupContentPadding} * 2)`, // Account for container padding
+              }}
+            >
+              {t('gameOver.skipCancel')}
+            </GameButton>
+            
+            {/* Warning Action - Skip high score */}
+            <GameButton 
+              onClick={handleSkipConfirm}
+              variant="warning"
+              size="md"
+              style={{
+                ...consistentElementStyle,
+                width: `calc(${gridWidth}px - ${DESIGN_TOKENS.layout.popupContentPadding} * 2)`, // Account for container padding
+              }}
+            >
+              {t('gameOver.skipConfirm')}
+            </GameButton>
+          </div>
+        </div>
+      )}
+
+      {/* Button Container - Always active now */}
+      {!showSkipConfirm && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: DESIGN_TOKENS.spacing.md,
+          alignItems: 'center',
+          width: '100%',
+        }}>
+          <GameButton 
+            onClick={handleRestartClick}
+            disabled={isCheckingScore || isSavingScore}
+            variant="primary"
+            size="md"
+            style={consistentElementStyle}
+          >
+            {isCheckingScore || isSavingScore ? t('gameOver.pleaseWait') : t('gameOver.newGame')}
+          </GameButton>
+          
+          <GameButton 
+            onClick={handleMainMenuClick}
+            disabled={isCheckingScore || isSavingScore}
+            variant="secondary"
+            size="md"
+            style={consistentElementStyle}
+          >
+            {isCheckingScore || isSavingScore ? t('gameOver.pleaseWait') : t('gameOver.mainMenu')}
+          </GameButton>
+        </div>
+      )}
       </div>
     </div>
   );

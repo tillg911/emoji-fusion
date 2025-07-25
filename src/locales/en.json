@@ -1,0 +1,74 @@
+{
+  "app": {
+    "title": "🎮 Emoji Fusion",
+    "description": "Merge tiles with the same emoji to create new ones! Use arrow keys to move tiles and reach the highest score possible."
+  },
+  "startScreen": {
+    "highScore": "🏆 High Score: {{score}}",
+    "globalHighScore": "🏆 Global High Score: {{score}}",
+    "noScoresYet": "🎮 No scores yet!",
+    "startNewGame": "✅ Start New Game",
+    "continueGame": "▶️ Continue Game",
+    "leaderboard": "🏆 Leaderboard"
+  },
+  "gameControls": {
+    "home": "🏠 Home",
+    "undo": "↩️ Undo Last Move",
+    "undoShortcut": "↩️ Undo Last Move (U)"
+  },
+  "gameOver": {
+    "title": "Game Over!",
+    "finalScore": "Final Score: {{score}}",
+    "checkingLeaderboard": "⏳ Checking leaderboard...",
+    "savingScore": "💾 Saving score...",
+    "topScore": "🎉 Top 100 Score! Enter your name:",
+    "enterName": "Enter name (max 12 chars)",
+    "saveScore": "💾 Save Score",
+    "saving": "⏳ Saving...",
+    "scoreSaved": "✅ Score saved to leaderboard!",
+    "newGame": "✅ New Game",
+    "mainMenu": "🏠 Main Menu",
+    "pleaseWait": "⏳ Please wait...",
+    "skipHighScore": "You reached a high score! Are you sure you want to skip submitting it?",
+    "skipConfirm": "⚠️ Start New Game!",
+    "skipCancel": "Enter Name"
+  },
+  "leaderboard": {
+    "title": "🏆 Leaderboard",
+    "topScores": "Top Scores",
+    "loading": "Loading leaderboard...",
+    "noScores": "No Scores Yet",
+    "noScoresDescription": "Play your first game to start building your leaderboard!",
+    "home": "🏠 Home"
+  },
+  "nameEntry": {
+    "newHighScore": "🎉 New High Score!",
+    "score": "Score: {{score}}",
+    "enterNamePrompt": "Enter your name for the leaderboard:",
+    "namePlaceholder": "Your name (max 12 chars)",
+    "skip": "Skip",
+    "saveScore": "Save Score",
+    "charactersRemaining": "{{current}}/{{max}} characters"
+  },
+  "confirmDialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "startNewGame": "Start New Game",
+    "startNewGameTitle": "Start New Game?",
+    "startNewGameMessage": "You already have a game in progress. Are you sure you want to start over?",
+    "skipHighScoreTitle": "Skip High Score?",
+    "skipHighScoreMessage": "You reached a high score! Are you sure you don't want to submit it?",
+    "skipHighScoreConfirm": "⚠️ Start New Game!",
+    "skipHighScoreCancel": "Enter Name"
+  },
+  "controls": {
+    "keyboardInstructions": "Use WASD or arrow keys to move",
+    "touchInstructions": "Swipe to move",
+    "keyboardShortcuts": "Press U to undo, R to reset",
+    "restartGame": "Restart Game"
+  },
+  "common": {
+    "anonymous": "Anonymous",
+    "player": "Player"
+  }
+}

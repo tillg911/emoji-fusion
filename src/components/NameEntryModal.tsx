@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { THEME_COLORS } from '../constants/colors';
 import { DESIGN_TOKENS } from '../constants/design-system';
+import { CELL_GAP } from '../constants/styles';
 
 interface NameEntryModalProps {
   isVisible: boolean;
@@ -11,8 +13,32 @@ interface NameEntryModalProps {
 }
 
 export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEntryModalProps) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [isAnimationVisible, setIsAnimationVisible] = useState(false);
+
+  // Calculate grid width for consistent button sizing
+  const calculateGridButtonWidth = () => {
+    const baseCellSize = 100;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+    
+    const availableWidth = Math.max(viewportWidth - 100, 320);
+    const availableHeight = Math.max(viewportHeight - 350, 280);
+    
+    const cellSize = Math.min(
+      baseCellSize,
+      Math.floor((availableWidth - (3 * CELL_GAP)) / 4),
+      Math.floor((availableHeight - (3 * CELL_GAP)) / 4)
+    );
+    
+    const minCellSize = viewportWidth < 480 ? 50 : viewportWidth < 768 ? 65 : 75;
+    const actualCellSize = Math.max(cellSize, minCellSize);
+    
+    return (actualCellSize + CELL_GAP) * 4 - CELL_GAP;
+  };
+
+  const gridWidth = calculateGridButtonWidth();
 
   // Handle animation visibility
   useEffect(() => {
@@ -36,7 +62,7 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
-    onSubmit(trimmedName || 'Anonymous');
+    onSubmit(trimmedName || t('common.anonymous'));
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,48 +94,52 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
     >
       <div
         style={{
-          backgroundColor: THEME_COLORS.background,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', // Match GameOverOverlay background
           borderRadius: DESIGN_TOKENS.borderRadius.xl,
-          padding: DESIGN_TOKENS.spacing['3xl'],
-          maxWidth: '400px',
-          width: '90%',
-          boxShadow: DESIGN_TOKENS.boxShadow.xl,
-          border: `2px solid ${THEME_COLORS.border.medium}`,
+          padding: DESIGN_TOKENS.layout.popupPadding,
+          width: 'fit-content',
+          minWidth: `${gridWidth}px`,
+          maxWidth: `max(${gridWidth}px, min(90vw, 500px))`,
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)', // Match GameOverOverlay shadow
+          border: '2px solid rgba(255, 255, 255, 0.15)', // Match GameOverOverlay border
+          color: 'white', // White text like GameOverOverlay
+          textAlign: 'center',
         }}
       >
         <div
           style={{
             textAlign: 'center',
-            marginBottom: '24px',
+            marginBottom: DESIGN_TOKENS.spacing.xl,
           }}
         >
           <h2
             style={{
-              color: THEME_COLORS.textPrimary,
-              fontSize: DESIGN_TOKENS.fontSize.xl,
+              color: 'white', // Match GameOverOverlay text color
+              fontSize: `clamp(${DESIGN_TOKENS.fontSize.lg}, 4vw, ${DESIGN_TOKENS.fontSize.xl})`,
               fontWeight: 'bold',
-              margin: `0 0 ${DESIGN_TOKENS.spacing.md} 0`,
+              margin: `0 0 ${DESIGN_TOKENS.spacing.lg} 0`,
             }}
           >
-            🎉 New High Score!
+{t('nameEntry.newHighScore')}
           </h2>
           <p
             style={{
-              color: THEME_COLORS.textSecondary,
-              fontSize: '18px',
-              margin: '0 0 8px 0',
+              color: 'rgba(255, 255, 255, 0.9)', // Slightly transparent white
+              fontSize: `clamp(${DESIGN_TOKENS.fontSize.sm}, 3vw, ${DESIGN_TOKENS.fontSize.base})`,
+              margin: `0 0 ${DESIGN_TOKENS.spacing.sm} 0`,
             }}
           >
-            Score: {score.toLocaleString()}
+{t('nameEntry.score', { score: score.toLocaleString() })}
           </p>
           <p
             style={{
-              color: THEME_COLORS.textSecondary,
-              fontSize: '14px',
+              color: '#FFD700', // Gold color for instruction text like in GameOverOverlay
+              fontSize: DESIGN_TOKENS.fontSize.sm,
+              fontWeight: 'bold',
               margin: '0',
             }}
           >
-            Enter your name for the leaderboard:
+{t('nameEntry.enterNamePrompt')}
           </p>
         </div>
 
@@ -118,7 +148,7 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
             type="text"
             value={name}
             onChange={handleNameChange}
-            placeholder="Your name (max 12 chars)"
+placeholder={t('nameEntry.namePlaceholder')}
             autoFocus
             style={{
               width: '100%',
@@ -156,7 +186,7 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
               onClick={onCancel}
               style={{ minWidth: '100px' }}
             >
-              Skip
+{t('nameEntry.skip')}
             </GameButton>
             <GameButton
               variant="primary"
@@ -165,7 +195,7 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
               type="submit"
               style={{ minWidth: '100px' }}
             >
-              Save Score
+{t('nameEntry.saveScore')}
             </GameButton>
           </div>
         </form>
@@ -178,7 +208,7 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
             color: THEME_COLORS.textSecondary,
           }}
         >
-          {name.length}/12 characters
+{t('nameEntry.charactersRemaining', { current: name.length, max: 12 })}
         </div>
       </div>
     </div>
