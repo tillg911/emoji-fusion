@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
+import { playButtonClick } from '../utils/sound';
 
 interface HomeButtonProps {
   onGoHome: () => void;
@@ -10,6 +11,12 @@ interface HomeButtonProps {
 
 export const HomeButton = ({ onGoHome, disabled = false, gridWidth }: HomeButtonProps) => {
   const { t } = useTranslation();
+
+  // Sound-enhanced handler
+  const handleGoHome = () => {
+    playButtonClick();
+    onGoHome();
+  };
   
   return (
     <div style={{
@@ -22,7 +29,7 @@ export const HomeButton = ({ onGoHome, disabled = false, gridWidth }: HomeButton
         variant="secondary"
         size="sm"
         fullWidth={false}
-        onClick={onGoHome}
+        onClick={handleGoHome}
         disabled={disabled}
         style={{ 
           width: `${gridWidth}px`,

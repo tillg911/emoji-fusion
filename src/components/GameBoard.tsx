@@ -9,9 +9,10 @@ import { UndoButton } from './UndoButton';
 import { ControlInstructions } from './ControlInstructions';
 import { TILE_RADIUS, GRID_BORDER_WIDTH, GRID_BORDER_COLOR, GRID_BACKGROUND_COLOR, CELL_GAP } from '../constants/styles';
 import { DESIGN_TOKENS } from '../constants/design-system';
-import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard, finalizeCurrentGame, hasFinalizedGame, canUndoAfterGameOver, setCanUndoAfterGameOver } from '../utils/storage';
+import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard, finalizeCurrentGame, hasFinalizedGame, canUndoAfterGameOver, setCanUndoAfterGameOver, updateMaxDiscoveredRank } from '../utils/storage';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
 import { useSwipeDetection } from '../hooks/useSwipeDetection';
+import { initSoundOnUserGesture, playMove, playMerge, playDenied, playGameOver } from '../utils/sound';
 
 // Helper functions defined outside component to avoid recreation
 const getEmptyCells = (grid: GameGrid): Array<{row: number, col: number}> => {
@@ -398,15 +399,13 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   };
 
   const handleMove = (direction: 'up' | 'down' | 'left' | 'right') => {
-    // Save current state before making move (for undo)
-    setPreviousState({
-      grid: grid.map(row => [...row]),
-      score,
-      nextId
-    });
-
+    // Initialize sound system on user interaction
+    initSoundOnUserGesture();
+    
+    // Create a copy of the current grid to test the move
     const newGrid: GameGrid = grid.map(row => [...row]);
     let moved = false;
+    let merged = false;
 
     newGrid.forEach(row => row.forEach(tile => {
       if (tile) {
@@ -442,8 +441,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 };
                 setScore(prev => prev + mergeScore);
                 addScoreAnimation(mergeScore, row, newCol - 1);
+                // Update max discovered rank for persistent progress
+                updateMaxDiscoveredRank(newLevel);
                 newGrid[row][newCol] = null;
                 moved = true;
+                merged = true;
                 break;
               } else {
                 break;
@@ -478,8 +480,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 };
                 setScore(prev => prev + mergeScore);
                 addScoreAnimation(mergeScore, row, newCol + 1);
+                // Update max discovered rank for persistent progress
+                updateMaxDiscoveredRank(newLevel);
                 newGrid[row][newCol] = null;
                 moved = true;
+                merged = true;
                 break;
               } else {
                 break;
@@ -514,8 +519,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 };
                 setScore(prev => prev + mergeScore);
                 addScoreAnimation(mergeScore, newRow - 1, col);
+                // Update max discovered rank for persistent progress
+                updateMaxDiscoveredRank(newLevel);
                 newGrid[newRow][col] = null;
                 moved = true;
+                merged = true;
                 break;
               } else {
                 break;
@@ -550,8 +558,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 };
                 setScore(prev => prev + mergeScore);
                 addScoreAnimation(mergeScore, newRow + 1, col);
+                // Update max discovered rank for persistent progress
+                updateMaxDiscoveredRank(newLevel);
                 newGrid[newRow][col] = null;
                 moved = true;
+                merged = true;
                 break;
               } else {
                 break;
@@ -563,9 +574,24 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     }
 
     if (moved) {
+      // ONLY save previous state if move was successful
+      // This prevents invalid moves from being added to undo stack
+      setPreviousState({
+        grid: grid.map(row => [...row]), // Save original grid state
+        score,
+        nextId
+      });
+      
       const finalGrid = spawnRandomTile(newGrid);
       setGrid(finalGrid);
       setCanUndo(true); // Enable undo after successful move
+      
+      // Play sound effects - priority: merge > move
+      if (merged) {
+        playMerge();
+      } else {
+        playMove();
+      }
       
       // Update highest tile reached
       const currentHighest = getHighestTileLevel(finalGrid);
@@ -582,6 +608,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       // Check for game over after spawning new tile
       if (checkGameOver(finalGrid)) {
         setIsGameOver(true);
+        playGameOver();
         
         // Set flag to allow undo once after game over
         setCanUndoAfterGameOver(true);
@@ -596,9 +623,15 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         checkScoreQualification(score);
       }
     } else {
-      // If no move was made, don't save the previous state
-      setPreviousState(null);
+      // Move was denied - play denied sound
+      playDenied();
     }
+    // If no move was made (moved === false):
+    // - Don't save any previous state
+    // - Don't spawn new tiles
+    // - Don't enable undo
+    // - Play denied sound
+    // - The game state remains unchanged
   };
 
   // Keyboard controls with extended functionality (excluding R-hold restart)
@@ -665,57 +698,76 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   const actualCellSize = Math.max(cellSize, minCellSize);
 
   return (
-    <ResponsiveContainer allowScroll={false}>
-      {/* Game Title */}
+    <ResponsiveContainer allowScroll={true}>
+      {/* Header Section */}
       <div style={{
-        fontSize: DESIGN_TOKENS.fontSize['2xl'],
-        fontWeight: 'bold',
-        color: '#333',
-        margin: '0',
-        textAlign: 'center',
-        textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: DESIGN_TOKENS.spacing.md,
+        width: '100%',
+        flexShrink: 0, // Don't shrink header
+        position: 'relative',
       }}>
-        Emoji Fusion
+        
+        {/* Game Title */}
+        <div style={{
+          fontSize: DESIGN_TOKENS.fontSize['2xl'],
+          fontWeight: 'bold',
+          color: '#333',
+          margin: '0',
+          textAlign: 'center',
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        }}>
+          Emoji Fusion
+        </div>
+        
+        {/* Score Display */}
+        <div style={{ 
+          fontSize: DESIGN_TOKENS.fontSize.lg, 
+          color: '#666',
+          margin: '0',
+          textAlign: 'center',
+          fontWeight: '600',
+        }}>
+          Score: {score.toLocaleString()}
+        </div>
+        
+        {/* Home Button - Above the grid */}
+        <HomeButton
+          onGoHome={onBackToStart}
+          disabled={isGameOver}
+          gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
+        />
       </div>
       
-      {/* Score Display */}
-      <div style={{ 
-        fontSize: DESIGN_TOKENS.fontSize.lg, 
-        color: '#666',
-        margin: '0',
-        textAlign: 'center',
-        fontWeight: '600',
+      {/* Game Area Container - Fixed size to prevent overlap */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: DESIGN_TOKENS.spacing.lg,
+        width: '100%',
+        flex: '0 0 auto', // Don't grow or shrink
       }}>
-        Score: {score.toLocaleString()}
-      </div>
-      
-      {/* Home Button - Above the grid */}
-      <HomeButton
-        onGoHome={onBackToStart}
-        disabled={isGameOver}
-        gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
-      />
-      
-      {/* Game Container with clean, flat design */}
-      <div 
-        ref={gameContainerRef}
-        className="game-container"
-        style={{ 
-          position: 'relative',
-          width: (actualCellSize + CELL_GAP) * 4 - CELL_GAP,
-          height: (actualCellSize + CELL_GAP) * 4 - CELL_GAP,
-          margin: '0 auto',
-          isolation: 'isolate',
-          // Removed border radius and box shadow for clean, flat appearance
-          // Responsive constraints to ensure grid stays visible
-          minWidth: '280px',
-          minHeight: '280px',
-          maxWidth: 'min(90vw, 500px)', // Cap maximum size
-          maxHeight: 'min(45vh, 500px)',
-          // Ensure proper display on small screens
-          flex: '0 0 auto',
-        }}
-      >
+        {/* Game Container with clean, flat design */}
+        <div 
+          ref={gameContainerRef}
+          className="game-container"
+          style={{ 
+            position: 'relative',
+            width: (actualCellSize + CELL_GAP) * 4 - CELL_GAP,
+            height: (actualCellSize + CELL_GAP) * 4 - CELL_GAP,
+            margin: '0',
+            isolation: 'isolate',
+            // Responsive constraints to ensure grid stays visible
+            minWidth: '280px',
+            minHeight: '280px',
+            maxWidth: 'min(90vw, 500px)',
+            maxHeight: 'min(90vw, 500px)', // Keep it square and responsive
+            flexShrink: 0, // Never shrink the game grid
+          }}
+        >
         {/* Grid background cells */}
         {grid.map((row, rowIndex) =>
           row.map((_, colIndex) => (
@@ -772,22 +824,34 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
           />
         )}
+        </div>
+        
+        {/* Controls Section - Always below the game grid */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: DESIGN_TOKENS.spacing.md,
+          width: '100%',
+          flexShrink: 0, // Don't shrink controls
+          marginTop: DESIGN_TOKENS.spacing.lg, // Fixed spacing from game grid
+        }}>
+          {/* Undo Button - Always below the grid with fixed spacing */}
+          <UndoButton
+            onUndo={handleUndo}
+            canUndo={(canUndo && !scoreHasBeenSaved && !hasFinalizedGame()) || (isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame())}
+            disabled={isGameOver}
+            allowUndoWhenDisabled={isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame()}
+            gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
+          />
+          
+          {/* Instructions */}
+          <ControlInstructions style={{
+            maxWidth: '90%',
+            opacity: 0.8,
+          }} />
+        </div>
       </div>
-      
-      {/* Undo Button - Below the grid */}
-      <UndoButton
-        onUndo={handleUndo}
-        canUndo={(canUndo && !scoreHasBeenSaved && !hasFinalizedGame()) || (isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame())}
-        disabled={isGameOver}
-        allowUndoWhenDisabled={isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame()}
-        gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
-      />
-      
-      {/* Instructions */}
-      <ControlInstructions style={{
-        maxWidth: '90%',
-        opacity: 0.8,
-      }} />
 
     </ResponsiveContainer>
   );

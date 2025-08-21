@@ -6,10 +6,13 @@
   "startScreen": {
     "highScore": "🏆 Rekord: {{score}}",
     "globalHighScore": "🏆 Globaler Rekord: {{score}}",
+    "globalHighScoreTitle": "🏆 Globaler Rekord",
+    "globalHighScoreBy": "von {{name}}",
     "noScoresYet": "🎮 Noch keine Ergebnisse!",
     "startNewGame": "✅ Neues Spiel",
     "continueGame": "▶️ Spiel fortsetzen",
-    "leaderboard": "🏆 Bestenliste"
+    "leaderboard": "🏆 Bestenliste",
+    "settings": "⚙️ Einstellungen"
   },
   "gameControls": {
     "home": "🏠 Start",
@@ -70,5 +73,15 @@
   "common": {
     "anonymous": "Anonym",
     "player": "Spieler"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Passe dein Spielerlebnis an",
+    "soundLabel": "Audio-Einstellungen",
+    "soundOn": "🔊 Sound: An",
+    "soundOff": "🔇 Sound: Aus",
+    "soundOnDescription": "Alle Spielsounds sind aktiviert",
+    "soundOffDescription": "Alle Spielsounds sind deaktiviert",
+    "backToMenu": "Start"
   }
 }

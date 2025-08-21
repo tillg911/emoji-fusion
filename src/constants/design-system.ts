@@ -112,7 +112,7 @@ export const BUTTON_VARIANTS = {
     colorHover: '#FFFFFF',
     shadow: DESIGN_TOKENS.boxShadow.button,
     shadowHover: DESIGN_TOKENS.boxShadow.buttonHover,
-    border: 'none',
+    border: '2px solid #4CAF50',
   },
   secondary: {
     background: 'rgba(255, 255, 255, 0.9)',

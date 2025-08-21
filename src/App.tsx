@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { GameBoard } from './components/GameBoard';
 import { StartScreen } from './components/StartScreen';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
+import SettingsScreen from './components/SettingsScreen';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { hasSavedGame, clearSavedGameState, addScoreToLeaderboard, finalizeCurrentGame } from './utils/storage';
 import { NameEntryModal } from './components/NameEntryModal';
 import { CELL_GAP } from './constants/styles';
 
-type GameState = 'start' | 'playing' | 'leaderboard';
+type GameState = 'start' | 'playing' | 'leaderboard' | 'settings';
 
 function App() {
   const { t } = useTranslation();
@@ -68,6 +69,10 @@ function App() {
 
   const showLeaderboard = () => {
     setGameState('leaderboard');
+  };
+
+  const showSettings = () => {
+    setGameState('settings');
   };
 
   const backToStart = () => {
@@ -152,6 +157,7 @@ function App() {
           onStartGame={startNewGame}
           onContinueGame={continueGame}
           onShowLeaderboard={showLeaderboard}
+          onShowSettings={showSettings}
         />
       )}
       {gameState === 'playing' && (
@@ -164,6 +170,11 @@ function App() {
       {gameState === 'leaderboard' && (
         <LeaderboardScreen 
           onBackToHome={backToStart}
+        />
+      )}
+      {gameState === 'settings' && (
+        <SettingsScreen 
+          onBackToMenu={backToStart}
         />
       )}
       

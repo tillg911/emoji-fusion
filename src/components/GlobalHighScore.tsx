@@ -45,9 +45,10 @@ export const GlobalHighScore = ({ style }: GlobalHighScoreProps) => {
     borderRadius: sizeStyles.borderRadius,
     
     // Use secondary button colors but with a different accent for high score
-    background: 'rgba(255, 215, 0, 0.1)', // Gold background
+    background: 'rgba(255, 215, 0, 0.7)', // Balanced transparency gold background
     color: '#B8860B', // Dark gold text
-    border: '2px solid rgba(255, 215, 0, 0.3)', // Gold border
+    border: '2px solid rgba(255, 215, 0, 0.6)', // Balanced transparency gold border
+    backdropFilter: 'blur(5px)', // Add backdrop blur to reduce emoji visibility
     boxShadow: DESIGN_TOKENS.boxShadow.base,
     
     // Text and layout
@@ -84,7 +85,33 @@ export const GlobalHighScore = ({ style }: GlobalHighScoreProps) => {
 
   return (
     <div style={baseStyle}>
-      {t('startScreen.globalHighScore', { score: highScore.score.toLocaleString() })}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '2px',
+      }}>
+        <div style={{
+          fontSize: 'clamp(12px, 2.5vw, 14px)',
+          fontWeight: '600',
+          opacity: 0.9,
+        }}>
+          {t('startScreen.globalHighScoreTitle')}
+        </div>
+        <div style={{
+          fontSize: 'clamp(14px, 3vw, 16px)',
+          fontWeight: 'bold',
+        }}>
+          {highScore.score.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: 'clamp(10px, 2vw, 12px)',
+          fontWeight: '500',
+          opacity: 0.8,
+        }}>
+          {t('startScreen.globalHighScoreBy', { name: highScore.name })}
+        </div>
+      </div>
     </div>
   );
 };

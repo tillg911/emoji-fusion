@@ -6,10 +6,13 @@
   "startScreen": {
     "highScore": "🏆 High Score: {{score}}",
     "globalHighScore": "🏆 Global High Score: {{score}}",
+    "globalHighScoreTitle": "🏆 Global Record",
+    "globalHighScoreBy": "by {{name}}",
     "noScoresYet": "🎮 No scores yet!",
     "startNewGame": "✅ Start New Game",
     "continueGame": "▶️ Continue Game",
-    "leaderboard": "🏆 Leaderboard"
+    "leaderboard": "🏆 Leaderboard",
+    "settings": "⚙️ Settings"
   },
   "gameControls": {
     "home": "🏠 Home",
@@ -70,5 +73,15 @@
   "common": {
     "anonymous": "Anonymous",
     "player": "Player"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Customize your experience",
+    "soundLabel": "Audio Settings",
+    "soundOn": "🔊 Sound: On",
+    "soundOff": "🔇 Sound: Off",
+    "soundOnDescription": "All game sounds are enabled",
+    "soundOffDescription": "All game sounds are disabled",
+    "backToMenu": "Start"
   }
 }

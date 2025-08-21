@@ -3,18 +3,35 @@ import { hasSavedGame } from '../utils/storage';
 import { GameButton } from './GameButton';
 import { GlobalHighScore } from './GlobalHighScore';
 import { ResponsiveContainer } from './ResponsiveContainer';
+import { FloatingEmojis } from './FloatingEmojis';
 import { DESIGN_TOKENS } from '../constants/design-system';
 import { CELL_GAP } from '../constants/styles';
+import { playNewGame, playResumeGame, playButtonClick } from '../utils/sound';
 
 interface StartScreenProps {
   onStartGame: () => void;
   onContinueGame: () => void;
   onShowLeaderboard: () => void;
+  onShowSettings: () => void;
 }
 
-export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: StartScreenProps) => {
+// Enhanced event handlers with sound integration
+const createSoundHandler = (originalHandler: () => void, soundFunction: () => void) => {
+  return () => {
+    soundFunction();
+    originalHandler();
+  };
+};
+
+export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard, onShowSettings }: StartScreenProps) => {
   const { t } = useTranslation();
   const hasActiveSave = hasSavedGame();
+  
+  // Create sound-enhanced handlers
+  const handleStartGame = createSoundHandler(onStartGame, playNewGame);
+  const handleContinueGame = createSoundHandler(onContinueGame, playResumeGame);
+  const handleShowLeaderboard = createSoundHandler(onShowLeaderboard, playButtonClick);
+  const handleShowSettings = createSoundHandler(onShowSettings, playButtonClick);
 
   // Calculate button width based on game grid dimensions for consistency
   const calculateGridButtonWidth = () => {
@@ -41,6 +58,13 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
 
   return (
     <ResponsiveContainer>
+      {/* Floating Emojis Background */}
+      <FloatingEmojis 
+        containerWidth={typeof window !== 'undefined' ? window.innerWidth : 800}
+        containerHeight={typeof window !== 'undefined' ? window.innerHeight : 600}
+        maxEmojis={20}
+      />
+      
       {/* Game Title */}
       <div style={{
         fontSize: DESIGN_TOKENS.fontSize['4xl'],
@@ -49,6 +73,8 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
         textAlign: 'center',
         margin: '0',
         textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        position: 'relative',
+        zIndex: 1,
       }}>
 {t('app.title')}
       </div>
@@ -61,6 +87,8 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
         maxWidth: '90%',
         lineHeight: '1.5',
         margin: '0',
+        position: 'relative',
+        zIndex: 1,
       }}>
 {t('app.description')}
       </div>
@@ -73,11 +101,14 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
         alignItems: 'center',
         width: '100%',
         maxWidth: `${gridButtonWidth}px`,
+        position: 'relative',
+        zIndex: 1,
       }}>
         {/* Global High Score Display - positioned above buttons */}
         <GlobalHighScore />
+        
         <GameButton 
-          onClick={onStartGame}
+          onClick={handleStartGame}
           variant="primary"
           style={{
             width: `${gridButtonWidth}px`,
@@ -89,7 +120,7 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
         </GameButton>
 
         <GameButton
-          onClick={onContinueGame}
+          onClick={handleContinueGame}
           disabled={!hasActiveSave}
           variant="secondary"
           style={{
@@ -102,7 +133,7 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
         </GameButton>
 
         <GameButton 
-          onClick={onShowLeaderboard}
+          onClick={handleShowLeaderboard}
           variant="secondary"
           style={{
             width: `${gridButtonWidth}px`,
@@ -111,6 +142,18 @@ export const StartScreen = ({ onStartGame, onContinueGame, onShowLeaderboard }: 
           }}
         >
 {t('startScreen.leaderboard')}
+        </GameButton>
+
+        <GameButton 
+          onClick={handleShowSettings}
+          variant="secondary"
+          style={{
+            width: `${gridButtonWidth}px`,
+            minWidth: '280px',
+            maxWidth: '500px',
+          }}
+        >
+{t('startScreen.settings')}
         </GameButton>
       </div>
     </ResponsiveContainer>

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
+import { playButtonClick } from '../utils/sound';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -26,6 +27,17 @@ export const ConfirmDialog = ({
   confirmVariant = 'primary'
 }: ConfirmDialogProps) => {
   const { t } = useTranslation();
+
+  // Sound-enhanced handlers
+  const handleConfirm = () => {
+    playButtonClick();
+    onConfirm();
+  };
+
+  const handleCancel = () => {
+    playButtonClick();
+    onCancel();
+  };
   
   if (!isOpen) return null;
 
@@ -89,7 +101,7 @@ export const ConfirmDialog = ({
         }}>
           {/* Primary Action Button (Cancel - Return to name entry) */}
           <GameButton
-            onClick={onCancel}
+            onClick={handleCancel}
             variant="primary"
             size="md"
             fullWidth={false}
@@ -113,7 +125,7 @@ export const ConfirmDialog = ({
 
           {/* Warning Action Button (Confirm - Skip high score) */}
           <GameButton
-            onClick={onConfirm}
+            onClick={handleConfirm}
             variant={confirmVariant === 'warning' ? 'warning' : 'primary'}
             size="md"
             fullWidth={false}

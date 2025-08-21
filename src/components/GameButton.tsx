@@ -77,6 +77,8 @@ export const GameButton = ({
       
       if (variant === 'secondary') {
         button.style.borderColor = '#6c757d';
+      } else if (variant === 'primary') {
+        button.style.borderColor = '#45a049';
       }
     }
     onMouseOver?.(e);
@@ -92,6 +94,8 @@ export const GameButton = ({
       
       if (variant === 'secondary') {
         button.style.borderColor = '#e9ecef';
+      } else if (variant === 'primary') {
+        button.style.borderColor = '#4CAF50';
       }
     }
     onMouseOut?.(e);

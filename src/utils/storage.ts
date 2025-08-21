@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   HIGH_SCORE: 'emoji-fusion-high-score',
   LEADERBOARD: 'emoji-fusion-leaderboard',
   SAVED_GAME: 'emoji-fusion-saved-game',
+  MAX_DISCOVERED_RANK: 'emoji-fusion-max-discovered-rank',
 } as const;
 
 export interface LeaderboardEntry {
@@ -193,4 +194,108 @@ export const setCanUndoAfterGameOver = (canUndo: boolean): void => {
       console.warn('Failed to update undo-after-game-over flag:', error);
     }
   }
+};
+
+// ==========================================
+// MAX DISCOVERED RANK MANAGEMENT
+// ==========================================
+
+/**
+ * Loads the highest ever discovered emoji rank from localStorage
+ * Falls back to 1 if no valid value is stored
+ * @returns {number} The highest discovered rank (minimum 1)
+ */
+export const loadMaxDiscoveredRank = (): number => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.MAX_DISCOVERED_RANK);
+    if (!stored) {
+      return 1; // Default for first-time users
+    }
+    
+    const parsed = parseInt(stored, 10);
+    
+    // Validate: must be a positive integer >= 1
+    if (isNaN(parsed) || parsed < 1) {
+      console.warn('Invalid max discovered rank in localStorage, resetting to 1');
+      saveMaxDiscoveredRank(1); // Reset corrupted data
+      return 1;
+    }
+    
+    return parsed;
+  } catch (error) {
+    console.warn('Failed to load max discovered rank from localStorage:', error);
+    return 1; // Safe fallback
+  }
+};
+
+/**
+ * Saves the highest discovered emoji rank to localStorage
+ * @param {number} rank - The rank to save (must be >= 1)
+ */
+export const saveMaxDiscoveredRank = (rank: number): void => {
+  try {
+    // Validate input
+    if (!Number.isInteger(rank) || rank < 1) {
+      console.warn('Invalid rank provided to saveMaxDiscoveredRank:', rank);
+      return;
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.MAX_DISCOVERED_RANK, rank.toString());
+  } catch (error) {
+    console.warn('Failed to save max discovered rank to localStorage:', error);
+  }
+};
+
+/**
+ * Updates the max discovered rank if the candidate is higher than current
+ * This is the main function to call during gameplay when new tiles are created
+ * @param {number} candidateRank - The new rank to potentially save
+ */
+export const updateMaxDiscoveredRank = (candidateRank: number): void => {
+  try {
+    // Validate input
+    if (!Number.isInteger(candidateRank) || candidateRank < 1) {
+      console.warn('Invalid candidate rank provided:', candidateRank);
+      return;
+    }
+    
+    const currentMax = loadMaxDiscoveredRank();
+    
+    // Only update if new rank is higher
+    if (candidateRank > currentMax) {
+      saveMaxDiscoveredRank(candidateRank);
+      console.log(`🎉 New max discovered rank: ${candidateRank} (previous: ${currentMax})`);
+    }
+  } catch (error) {
+    console.warn('Failed to update max discovered rank:', error);
+  }
+};
+
+/**
+ * Resets the max discovered rank back to 1
+ * Use this for "reset progress" functionality
+ */
+export const resetMaxDiscoveredRank = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.MAX_DISCOVERED_RANK);
+    console.log('Max discovered rank reset to default (1)');
+  } catch (error) {
+    console.warn('Failed to reset max discovered rank:', error);
+  }
+};
+
+/**
+ * Gets all emoji levels from 1 up to the max discovered rank
+ * Used by animations and demos
+ * @returns {number[]} Array of available levels
+ */
+export const getAvailableEmojiLevels = (): number[] => {
+  const maxRank = loadMaxDiscoveredRank();
+  const levels = [];
+  
+  for (let level = 1; level <= maxRank; level++) {
+    levels.push(level);
+  }
+  
+  return levels;
 };

@@ -4,6 +4,7 @@ import { GameButton } from './GameButton';
 import { THEME_COLORS } from '../constants/colors';
 import { DESIGN_TOKENS } from '../constants/design-system';
 import { CELL_GAP } from '../constants/styles';
+import { playButtonClick, playTop100 } from '../utils/sound';
 
 interface NameEntryModalProps {
   isVisible: boolean;
@@ -61,8 +62,15 @@ export const NameEntryModal = ({ isVisible, score, onSubmit, onCancel }: NameEnt
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    playTop100(); // Play celebration sound for high score submission
     const trimmedName = name.trim();
     onSubmit(trimmedName || t('common.anonymous'));
+  };
+
+  // Sound-enhanced handler for cancel action
+  const handleCancel = () => {
+    playButtonClick();
+    onCancel();
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,7 +191,7 @@ placeholder={t('nameEntry.namePlaceholder')}
               size="sm"
               fullWidth={false}
               type="button"
-              onClick={onCancel}
+              onClick={handleCancel}
               style={{ minWidth: '100px' }}
             >
 {t('nameEntry.skip')}

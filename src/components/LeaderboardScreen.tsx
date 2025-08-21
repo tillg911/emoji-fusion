@@ -8,6 +8,7 @@ import { safePlayerName } from '../utils/playerNameUtils';
 import { EMOJI_MAP } from '../constants/emojis';
 import { DESIGN_TOKENS } from '../constants/design-system';
 import { CELL_GAP } from '../constants/styles';
+import { playButtonClick } from '../utils/sound';
 
 interface LeaderboardScreenProps {
   onBackToHome: () => void;
@@ -18,6 +19,12 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { isMobile } = useResponsive();
+
+  // Sound-enhanced handler for back button
+  const handleBackToHome = () => {
+    playButtonClick();
+    onBackToHome();
+  };
 
   // Calculate button width based on game grid dimensions for consistency
   const calculateGridButtonWidth = () => {
@@ -296,7 +303,7 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         maxWidth: `${gridButtonWidth}px`,
       }}>
         <GameButton 
-          onClick={onBackToHome}
+          onClick={handleBackToHome}
           variant="secondary"
           style={{
             width: `${gridButtonWidth}px`,

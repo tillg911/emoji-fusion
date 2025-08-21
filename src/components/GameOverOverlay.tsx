@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
+import { playButtonClick, playNewGame, playTop100 } from '../utils/sound';
 
 interface GameOverOverlayProps {
   score: number;
@@ -59,6 +60,7 @@ export const GameOverOverlay = ({
 
   const handleNameSubmit = () => {
     if (onNameSubmit && name.trim() && !isSavingScore) {
+      playTop100(); // Play celebration sound for high score submission
       setHasSubmittedScore(true); // Mark immediately to prevent double submission
       onNameSubmit(name.trim());
     }
@@ -80,8 +82,10 @@ export const GameOverOverlay = ({
 
   const handleRestartClick = () => {
     if (qualifiesForLeaderboard && !hasSubmittedScore && !isSavingScore) {
+      playButtonClick(); // Sound for showing confirmation dialog
       setShowSkipConfirm(true);
     } else {
+      playNewGame(); // Sound for starting new game
       onRestart();
     }
   };
@@ -89,10 +93,12 @@ export const GameOverOverlay = ({
   const handleMainMenuClick = () => {
     // Always go to main menu without confirmation
     // Pending high score will be handled on the Start Screen
+    playButtonClick();
     onMainMenu();
   };
 
   const handleSkipConfirm = () => {
+    playNewGame(); // Sound for confirming skip and starting new game
     setShowSkipConfirm(false);
     setHasSubmittedScore(true); // Mark as submitted to prevent further prompts
     if (onSkipHighScore) {
@@ -103,6 +109,7 @@ export const GameOverOverlay = ({
   };
 
   const handleSkipCancel = () => {
+    playButtonClick(); // Sound for canceling skip confirmation
     setShowSkipConfirm(false);
     // User cancels - they can still interact with the Game Over screen normally
     // Focus back on the name input if it exists
