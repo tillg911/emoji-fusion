@@ -6,6 +6,7 @@
 // Global AudioContext
 let audioCtx: AudioContext | null = null;
 let isInitialized = false;
+let isAutoInitSetup = false;
 
 // Configuration
 const STORAGE_KEY = 'emojiFusion:sound';
@@ -142,6 +143,36 @@ const loadSoundSettings = (): void => {
 };
 
 /**
+ * Setup auto-initialization on first user interaction
+ */
+const setupAutoInit = (): void => {
+  if (isAutoInitSetup || typeof window === 'undefined') return;
+  
+  isAutoInitSetup = true;
+  
+  // Events that indicate user interaction
+  const events = ['click', 'touchstart', 'touchend', 'keydown', 'keyup', 'mousedown'];
+  
+  const autoInitHandler = () => {
+    if (!isInitialized) {
+      initSoundOnUserGesture();
+    }
+    
+    // Remove all listeners after first initialization
+    events.forEach(event => {
+      document.removeEventListener(event, autoInitHandler, true);
+    });
+  };
+  
+  // Add listeners with capture=true to ensure we catch the first interaction
+  events.forEach(event => {
+    document.addEventListener(event, autoInitHandler, true);
+  });
+  
+  console.log('🎵 Auto-initialization setup complete - sound will activate on first user interaction');
+};
+
+/**
  * Save sound settings to localStorage
  */
 const saveSoundSettings = (): void => {
@@ -154,6 +185,19 @@ const saveSoundSettings = (): void => {
 };
 
 /**
+ * Initialize sound system on app load (loads settings, sets up auto-init)
+ */
+export const initSoundSystem = (): void => {
+  // Load settings immediately
+  loadSoundSettings();
+  
+  // Setup auto-initialization for when user first interacts
+  setupAutoInit();
+  
+  console.log('🎵 Sound system ready - settings loaded, auto-init configured');
+};
+
+/**
  * Initialize sound system on first user gesture
  */
 export const initSoundOnUserGesture = (): void => {
@@ -161,7 +205,6 @@ export const initSoundOnUserGesture = (): void => {
   
   try {
     audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    loadSoundSettings();
     
     if (audioCtx.state === 'suspended') {
       audioCtx.resume().then(() => {
@@ -208,6 +251,13 @@ export const setVolume = (level: number): void => {
  */
 export const getVolume = (): number => {
   return volume;
+};
+
+/**
+ * Check if sound system is ready (settings loaded)
+ */
+export const isSoundSystemReady = (): boolean => {
+  return isAutoInitSetup;
 };
 
 /**

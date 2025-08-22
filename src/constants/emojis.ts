@@ -18,3 +18,7 @@ export const EMOJI_MAP = new Map<number, string>([
   [17, "🧘"],
   [18, "🕊️"],
 ]);
+
+// Special tile types
+export const JOKER_LEVEL = -1;
+export const JOKER_EMOJI = "🃏";

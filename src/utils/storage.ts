@@ -1,5 +1,6 @@
 // Storage utilities for game data persistence
 import { supabase } from '../supabase';
+import { PowerUpState } from '../types';
 
 const STORAGE_KEYS = {
   HIGH_SCORE: 'emoji-fusion-high-score',
@@ -26,17 +27,20 @@ export interface SavedGameState {
     grid: any[][];
     score: number;
     nextId: number;
+    powerUpState?: PowerUpState;
   } | null;
   preRestartState?: {
     grid: any[][];
     score: number;
     nextId: number;
+    powerUpState?: PowerUpState;
   } | null;
   canUndo?: boolean;
   wasRestartedViaHold?: boolean;
   isGameOver?: boolean;
   gameFinalized?: boolean; // Tracks if game has been finalized (score submitted or new game started)
   canUndoAfterGameOver?: boolean; // Tracks if player can undo once after game over
+  powerUpState?: PowerUpState; // Power-up state
 }
 
 // High Score Management

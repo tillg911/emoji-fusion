@@ -10,6 +10,7 @@ interface UndoButtonProps {
   disabled?: boolean;
   allowUndoWhenDisabled?: boolean;
   gridWidth: number; // Width of the game grid to match
+  extraUndos?: number; // Number of extra undos available
 }
 
 export const UndoButton = ({ 
@@ -17,7 +18,8 @@ export const UndoButton = ({
   canUndo, 
   disabled = false,
   allowUndoWhenDisabled = false,
-  gridWidth
+  gridWidth,
+  extraUndos = 0
 }: UndoButtonProps) => {
   const { t } = useTranslation();
   const { hasPhysicalKeyboard } = useDeviceDetection();
@@ -54,7 +56,22 @@ export const UndoButton = ({
           justifyContent: 'center',
         }}
       >
-        {hasPhysicalKeyboard ? t('gameControls.undoShortcut') : t('gameControls.undo')}
+        <span>
+          {hasPhysicalKeyboard ? t('gameControls.undoShortcut') : t('gameControls.undo')}
+        </span>
+        {extraUndos > 0 && (
+          <span style={{
+            marginLeft: DESIGN_TOKENS.spacing.sm,
+            backgroundColor: 'rgba(255, 215, 0, 0.2)',
+            color: '#B45309',
+            padding: '2px 6px',
+            borderRadius: '10px',
+            fontSize: 'clamp(10px, 2.5vw, 12px)',
+            fontWeight: 'bold'
+          }}>
+            +{extraUndos}
+          </span>
+        )}
       </GameButton>
     </div>
   );

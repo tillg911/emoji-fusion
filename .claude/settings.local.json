@@ -12,9 +12,13 @@
       "Bash(mkdir:*)",
       "Bash(node test-player-names.js)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\c\\Users\\Till Greiffert\\projects"
+    ]
   }
 }

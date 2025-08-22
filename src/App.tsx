@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GameBoard } from './components/GameBoard';
 import { StartScreen } from './components/StartScreen';
@@ -8,6 +8,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { hasSavedGame, clearSavedGameState, addScoreToLeaderboard, finalizeCurrentGame } from './utils/storage';
 import { NameEntryModal } from './components/NameEntryModal';
 import { CELL_GAP } from './constants/styles';
+import { initSoundSystem } from './utils/sound';
 
 type GameState = 'start' | 'playing' | 'leaderboard' | 'settings';
 
@@ -17,6 +18,11 @@ function App() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showHighScoreConfirm, setShowHighScoreConfirm] = useState(false);
   const [shouldLoadSavedGame, setShouldLoadSavedGame] = useState(false);
+
+  // Initialize sound system on app load
+  useEffect(() => {
+    initSoundSystem();
+  }, []);
   
   // Calculate standard button width based on game grid dimensions
   const calculateGridButtonWidth = () => {

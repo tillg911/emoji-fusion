@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isMuted, setMuted, initSoundOnUserGesture } from '../utils/sound';
+import { isMuted, setMuted, initSoundOnUserGesture, isSoundSystemReady } from '../utils/sound';
 import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface SoundToggleProps {
@@ -9,9 +9,21 @@ interface SoundToggleProps {
 export const SoundToggle = ({ style }: SoundToggleProps) => {
   const [soundEnabled, setSoundEnabled] = useState(!isMuted());
 
-  // Update state when component mounts
+  // Update state when component mounts, wait for sound system to be ready
   useEffect(() => {
-    setSoundEnabled(!isMuted());
+    const updateSoundState = () => {
+      if (isSoundSystemReady()) {
+        setSoundEnabled(!isMuted());
+      }
+    };
+    
+    updateSoundState();
+    
+    // If not ready yet, check again in a moment
+    if (!isSoundSystemReady()) {
+      const timer = setTimeout(updateSoundState, 100);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const handleToggle = () => {

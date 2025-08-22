@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { GameButton } from './GameButton';
 import { ResponsiveContainer } from './ResponsiveContainer';
 import { FloatingEmojis } from './FloatingEmojis';
-import { isMuted, setMuted, initSoundOnUserGesture, playButtonClick } from '../utils/sound';
+import { isMuted, setMuted, initSoundOnUserGesture, playButtonClick, isSoundSystemReady } from '../utils/sound';
 
 // Safe imports with fallbacks
 let DESIGN_TOKENS: any = {};
@@ -33,11 +33,23 @@ const SettingsScreen = ({ onBackToMenu }: SettingsScreenProps) => {
 
   // Initialize sound state on component mount
   useEffect(() => {
-    try {
-      setSoundEnabled(!isMuted());
-    } catch (error) {
-      console.warn('Error reading sound state:', error);
-      setSoundEnabled(true); // Fallback
+    const updateSoundState = () => {
+      try {
+        if (isSoundSystemReady()) {
+          setSoundEnabled(!isMuted());
+        }
+      } catch (error) {
+        console.warn('Error reading sound state:', error);
+        setSoundEnabled(true); // Fallback
+      }
+    };
+    
+    updateSoundState();
+    
+    // If not ready yet, check again in a moment
+    if (!isSoundSystemReady()) {
+      const timer = setTimeout(updateSoundState, 100);
+      return () => clearTimeout(timer);
     }
   }, []);
 

@@ -4,6 +4,7 @@ interface KeyboardControlsProps {
   onMove?: (direction: 'up' | 'down' | 'left' | 'right') => void;
   onUndo?: () => void;
   onRestart?: () => void;
+  onEscape?: () => void;
   disabled?: boolean;
   canUndo?: boolean;
 }
@@ -18,6 +19,7 @@ export const useKeyboardControls = ({
   onMove,
   onUndo,
   onRestart,
+  onEscape,
   disabled = false,
   canUndo = false,
 }: KeyboardControlsProps) => {
@@ -39,7 +41,7 @@ export const useKeyboardControls = ({
       const gameKeys = [
         'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
         'w', 'a', 's', 'd', 'W', 'A', 'S', 'D',
-        'u', 'U', 'r', 'R'
+        'u', 'U', 'r', 'R', 'Escape'
       ];
       
       if (gameKeys.includes(event.key)) {
@@ -77,6 +79,12 @@ export const useKeyboardControls = ({
         onUndo();
         return;
       }
+      
+      // Escape control (for canceling power-up selection)
+      if (event.key === 'Escape' && onEscape) {
+        onEscape();
+        return;
+      }
 
       // Restart control (hold R for 3 seconds)
       if ((event.key === 'r' || event.key === 'R') && onRestart) {
@@ -112,7 +120,7 @@ export const useKeyboardControls = ({
         return;
       }
     },
-    [disabled, onMove, onUndo, onRestart, canUndo]
+    [disabled, onMove, onUndo, onRestart, onEscape, canUndo]
   );
 
   const handleKeyUp = useCallback(
