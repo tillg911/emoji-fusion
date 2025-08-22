@@ -346,6 +346,11 @@ export const playTop100 = (): void => {
   playSound(() => zzfx(0.09 * volume, 0, 440, 0.005, 0.05, 0.25, 0, 1, 220, 0, 0, 0, 0, 0, 5, 0, 0, 0.8, 0, 0));
 };
 
+export const playJokerSpawn = (): void => {
+  // Einfacher aber magischer Joker-Sound
+  playSound(() => zzfx(0.3 * volume, 0, 300, 0.05, 0.2, 0.4, 0, 1.5, 50, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0));
+};
+
 // TEST FUNCTIONS
 
 /**

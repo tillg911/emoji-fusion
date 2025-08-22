@@ -8,14 +8,15 @@ import { HomeButton } from './HomeButton';
 import { UndoButton } from './UndoButton';
 import { ControlInstructions } from './ControlInstructions';
 import { PowerUpBar } from './PowerUpBar';
-import { PowerUpPopup } from './PowerUpPopup';
+import { PowerUpHint } from './PowerUpHint';
+import { DeadlockHint } from './DeadlockHint';
 import { TILE_RADIUS, GRID_BORDER_WIDTH, GRID_BORDER_COLOR, GRID_BACKGROUND_COLOR, CELL_GAP } from '../constants/styles';
 import { DESIGN_TOKENS } from '../constants/design-system';
 import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard, finalizeCurrentGame, hasFinalizedGame, canUndoAfterGameOver, setCanUndoAfterGameOver, updateMaxDiscoveredRank } from '../utils/storage';
 import { JOKER_LEVEL } from '../constants/emojis';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
 import { useSwipeDetection } from '../hooks/useSwipeDetection';
-import { initSoundOnUserGesture, playMove, playMerge, playDenied, playGameOver } from '../utils/sound';
+import { initSoundOnUserGesture, playMove, playMerge, playDenied, playGameOver, playJokerSpawn } from '../utils/sound';
 import { 
   generateRandomPowerUp, 
   shouldGeneratePowerUp, 
@@ -28,8 +29,13 @@ import {
   startPowerUpSelection,
   canPickTile,
   addPickedTile,
-  isSelectionComplete
+  isSelectionComplete,
+  canSafelyFreezeTile,
+  getRandomFrozenTileId,
+  unfreezeTile
 } from '../utils/powerUps';
+import { canMakeAnyMove } from '../utils/deadlock';
+import { DEADLOCK_MESSAGES } from '../constants/deadlock';
 
 // Helper functions defined outside component to avoid recreation
 const getEmptyCells = (grid: GameGrid): Array<{row: number, col: number}> => {
@@ -76,15 +82,15 @@ const getMergeResult = (targetTile: Tile, movingTile: Tile): {level: number, isJ
   return { level: targetTile.level + 1, isJoker: false };
 };
 
-// Generate tile with probabilities: 4% joker (1/25), 86.4% level 1, 9.6% level 2
+// Generate tile with probabilities: 2% joker, 88% level 1, 10% level 2
 const generateTile = (): {level: number, isJoker: boolean} => {
   const random = Math.random();
-  if (random < 0.04) { // 1/25 chance for joker
+  if (random < 0.02) { // 2% chance for joker
     return { level: JOKER_LEVEL, isJoker: true };
-  } else if (random < 0.136) { // 9.6% chance for level 2 (0.10 * 0.96)
-    return { level: 2, isJoker: false };
+  } else if (random < 0.9) { // 40% chance for level 1 (0.4 out of remaining 0.5)
+    return { level: 1, isJoker: false };
   } else {
-    return { level: 1, isJoker: false }; // 86.4% chance for level 1
+    return { level: 2, isJoker: false }; // 10% chance for level 2
   }
 };
 
@@ -169,8 +175,6 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           grid: savedState.grid as GameGrid,
           nextId: savedState.nextId,
           score: savedState.score,
-          // Restore undo state information
-          previousState: savedState.previousState || null,
           preRestartState: savedState.preRestartState || null,
           canUndo: savedState.canUndo || false,
           wasRestartedViaHold: savedState.wasRestartedViaHold || false,
@@ -182,7 +186,6 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       grid: initializeGrid(),
       nextId: 3,
       score: 0,
-      previousState: null,
       preRestartState: null,
       canUndo: false,
       wasRestartedViaHold: false,
@@ -196,7 +199,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   const [isGameOver, setIsGameOver] = useState(initialState.isGameOver);
   const [score, setScore] = useState(initialState.score);
   const [activeScoreAnimations, setActiveScoreAnimations] = useState<ScoreAnimation[]>([]);
-  const [previousState, setPreviousState] = useState<{grid: GameGrid, score: number, nextId: number, powerUpState?: PowerUpState, generatedPowerUpLevels?: number[]} | null>(initialState.previousState);
+  // Simplified undo history - stores the last n states (5 + spawned undos)
   const [undoHistory, setUndoHistory] = useState<{grid: GameGrid, score: number, nextId: number, powerUpState?: PowerUpState, generatedPowerUpLevels?: number[]}[]>([]);
   const [canUndo, setCanUndo] = useState(initialState.canUndo);
   const isUndoingRef = useRef(false); // Flag to prevent power-up generation during undo
@@ -226,6 +229,12 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   // Loading states for async operations
   const [isCheckingScore, setIsCheckingScore] = useState(false);
   const [isSavingScore, setIsSavingScore] = useState(false);
+  
+  // Deadlock prevention hint state
+  const [deadlockHint, setDeadlockHint] = useState<string | null>(null);
+  
+  // Joker spawn input lock
+  const [isJokerSpawnLocked, setIsJokerSpawnLocked] = useState(false);
 
   // Helper function to add score animation
   const addScoreAnimation = (score: number, row: number, col: number) => {
@@ -245,6 +254,12 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   // Helper function to remove completed score animation
   const removeScoreAnimation = (id: string) => {
     setActiveScoreAnimations(prev => prev.filter(anim => anim.id !== id));
+  };
+
+  // Helper function to show deadlock prevention hint
+  const showDeadlockHint = (message: string) => {
+    setDeadlockHint(message);
+    setTimeout(() => setDeadlockHint(null), 3000); // Hide after 3 seconds
   };
 
   // Helper function to check if score qualifies for leaderboard
@@ -285,7 +300,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           // Mark the game as finalized instead of clearing it immediately
           finalizeCurrentGame();
           // Reset all undo capabilities in current session
-          setPreviousState(null);
+          setUndoHistory([]);
           setCanUndo(false);
           setPreRestartState(null);
           setWasRestartedViaHold(false);
@@ -311,183 +326,144 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     // Mark the game as finalized
     finalizeCurrentGame();
     // Reset undo capabilities
-    setPreviousState(null);
+    setUndoHistory([]);
     setCanUndo(false);
     setPreRestartState(null);
     setWasRestartedViaHold(false);
     setCanUndoAfterGameOver(false);
   };
 
-  // Handle undo
   const handleUndo = () => {
-    // Block undo during power-up selection
-    if (powerUpState.inputLocked) return;
+    // Check if input is locked during power-up selection
+    if (powerUpState.inputLocked) {
+      console.log('🔒 Undo blocked during power-up selection');
+      return;
+    }
     
-    // Check if undo is allowed: must have undo state, score not saved, and game not finalized
+    // Check if we have any states to undo
+    if (undoHistory.length === 0) {
+      console.log('🔴 No states available for undo');
+      return;
+    }
+    
+    // Super einfache Logik: kann ich überhaupt undo machen?
     const isFinalized = hasFinalizedGame();
     const canUndoAfterGameOverFlag = canUndoAfterGameOver();
+    const normalGameUndo = (canUndo && !scoreHasBeenSaved && !isFinalized);
+    const gameOverUndo = (isGameOver && canUndoAfterGameOverFlag && !scoreHasBeenSaved && !isFinalized);
+    const hasExtraUndos = powerUpState.extraUndos > 0 && !scoreHasBeenSaved && !isFinalized;
     
-    // Allow undo if:
-    // 1. Normal conditions: canUndo && !scoreHasBeenSaved && !isFinalized
-    // 2. Special after-game-over: isGameOver && canUndoAfterGameOverFlag && !scoreHasBeenSaved && !isFinalized
-    // 3. Extra undo available: powerUpState.extraUndos > 0
-    const normalUndoAllowed = (canUndo && !scoreHasBeenSaved && !isFinalized) || 
-                             (isGameOver && canUndoAfterGameOverFlag && !scoreHasBeenSaved && !isFinalized);
-    const hasAnyUndoState = previousState || undoHistory.length > 0;
-    const extraUndoAvailable = powerUpState.extraUndos > 0 && hasAnyUndoState && !scoreHasBeenSaved && !isFinalized;
+    const canPerformUndo = normalGameUndo || gameOverUndo || hasExtraUndos;
     
-    // Debug logging
-    console.log('🔍 Undo Debug:', {
+    if (!canPerformUndo) {
+      console.log('🔴 Undo not available');
+      return;
+    }
+    
+    console.log('🔄 GameBoard: Undoing last move');
+    
+    // Set flag to prevent power-up generation during undo
+    isUndoingRef.current = true;
+    console.log('🚫 Disabled power-up generation during undo');
+    
+    // NEUE LOGIK: Extra-Undos zuerst verwenden, dann normalen Undo
+    const useExtraUndo = hasExtraUndos; // Bevorzuge Extra-Undos
+    
+    console.log('🔄 Undo info:', {
+      normalGameUndo,
+      useExtraUndo,
       extraUndos: powerUpState.extraUndos,
-      undoHistoryLength: undoHistory.length,
-      hasPreviousState: !!previousState,
-      hasAnyUndoState,
-      scoreHasBeenSaved,
-      isFinalized,
-      extraUndoAvailable,
-      normalUndoAllowed
+      historyLength: undoHistory.length
     });
     
-    if (normalUndoAllowed || extraUndoAvailable) {
-      // Prioritize extra undo if available, fall back to normal undo
-      const usingExtraUndo = extraUndoAvailable;
-      
-      // Use extra undo if normal undo not available but extra undo is
-      if (usingExtraUndo) {
-        setPowerUpState(prev => {
-          console.log('🔄 Extra Undo: Decrementing from', prev.extraUndos, 'to', prev.extraUndos - 1);
-          if (prev.extraUndos <= 0) {
-            console.warn('⚠️ Trying to use extra undo but extraUndos is already', prev.extraUndos);
-          }
-          return {
-            ...prev,
-            extraUndos: Math.max(0, prev.extraUndos - 1) // Prevent negative values
-          };
-        });
-        console.log('🔄 GameBoard: Using extra undo');
-      }
-      if (wasRestartedViaHold && preRestartState) {
-        console.log('🔄 GameBoard: Undoing restart via hold - restoring pre-restart state');
-        // Undo restart via hold - restore pre-restart state
-        setGrid(preRestartState.grid);
-        setScore(preRestartState.score);
-        setNextId(preRestartState.nextId);
-        setPreRestartState(null);
-        setWasRestartedViaHold(false);
-        // Only disable normal undo if we used it (not if we used extra undo)
-        if (!usingExtraUndo) {
-          setCanUndo(false);
-        }
-        setActiveScoreAnimations([]);
-        setIsGameOver(false); // Clear game over state
-        setLocalPendingScore(null); // Clear pending leaderboard entry
-        setScoreHasBeenSaved(false); // Reset save state
-        setHighestTileReached(getHighestTileLevel(preRestartState.grid)); // Reset to pre-restart highest tile
-        onPendingScore?.(null); // Clear pending score in parent
-        // Clear undo-after-game-over flag
-        setCanUndoAfterGameOver(false);
-      } else if (previousState || undoHistory.length > 0) {
-        console.log('🔄 GameBoard: Undoing ' + (usingExtraUndo ? 'extra undo' : 'regular move') + (isGameOver ? ' (after game over)' : ''));
-        
-        // Set flag to prevent power-up generation
-        isUndoingRef.current = true;
-        console.log('🚫 Blocking power-up generation during undo');
-        
-        let stateToRestore;
-        
-        if (usingExtraUndo && undoHistory.length > 0) {
-          // Use the FIRST state from undo history (oldest state), not the last
-          stateToRestore = undoHistory[0];
-          console.log('🔄 Extra Undo: Restoring state from history', {
-            historyLength: undoHistory.length,
-            restoringScore: stateToRestore.score,
-            currentScore: score,
-            gridSample: stateToRestore.grid[0][0]?.level || 'empty',
-            allScores: undoHistory.map(s => s.score).join(', ')
-          });
-          // Remove the first state from history
-          setUndoHistory(prev => prev.slice(1));
-        } else if (previousState) {
-          stateToRestore = previousState;
-          console.log('🔄 Normal Undo: Restoring previous state', {
-            restoringScore: stateToRestore.score,
-            currentScore: score
-          });
-        } else {
-          console.log('🔴 No state to restore!');
-          return;
-        }
-        
-        // Restore the state
-        setGrid(stateToRestore.grid);
-        setScore(stateToRestore.score);
-        setNextId(stateToRestore.nextId);
-        
-        // Restore the level tracking for power-up generation
-        if (stateToRestore.generatedPowerUpLevels) {
-          generatedPowerUpLevels.current = new Set(stateToRestore.generatedPowerUpLevels);
-          console.log('🔄 Restored generated power-up levels:', stateToRestore.generatedPowerUpLevels);
-        }
-        
-        // Handle power-up state restoration
-        if (!usingExtraUndo && stateToRestore.powerUpState) {
-          // When using normal undo, we need to be careful about extraUndos
-          // Restore the powerUpState but preserve any extraUndos that were consumed
-          const currentExtraUndos = powerUpState.extraUndos;
-          console.log('🔄 Normal undo - restoring powerUpState but preserving consumed extraUndos');
-          console.log('   Backup had extraUndos:', stateToRestore.powerUpState.extraUndos, 'Current has:', currentExtraUndos);
-          
-          setPowerUpState({
-            ...stateToRestore.powerUpState,
-            // If we used extra undos, don't restore them
-            extraUndos: Math.min(stateToRestore.powerUpState.extraUndos, currentExtraUndos)
-          });
-        } else if (usingExtraUndo) {
-          // When using extra undo, NEVER restore powerUpState from backup
-          // The extraUndos counter was already decremented above and should stay that way
-          console.log('🔄 Extra undo - keeping current powerUpState (not restoring from backup)');
-        }
-        
-        // Handle state cleanup
-        if (usingExtraUndo) {
-          // When using extra undo, clear undo history if no more extra undos
-          // Use current powerUpState.extraUndos (which was already decremented above)
-          setTimeout(() => {
-            if (powerUpState.extraUndos === 0) {
-              setUndoHistory([]);
-            }
-          }, 0);
-        } else {
-          // When using normal undo, clear previousState and history
-          setPreviousState(null);
-          setUndoHistory([]);
-          setCanUndo(false);
-        }
-        setActiveScoreAnimations([]);
-        setIsGameOver(false); // Clear game over state when undoing
-        setLocalPendingScore(null); // Clear pending leaderboard entry
-        setScoreHasBeenSaved(false); // Reset save state
-        
-        // IMPORTANT: Don't restore highestTileReached when undoing
-        // This prevents power-up generation when undoing to a previous level
-        // Keep the current highestTileReached to avoid re-triggering power-up generation
-        const currentHighestTile = highestTileReached;
-        const gridHighestTile = getHighestTileLevel(stateToRestore.grid);
-        console.log('🔄 Undo: Keeping highest tile at', currentHighestTile, '(grid has', gridHighestTile, ') - no power-up generation');
-        
-        onPendingScore?.(null); // Clear pending score in parent
-        // Clear undo-after-game-over flag
-        setCanUndoAfterGameOver(false);
-        
-        // Reset flag after state updates are complete
-        setTimeout(() => {
-          isUndoingRef.current = false;
-          console.log('✅ Re-enabled power-up generation');
-        }, 100); // Longer delay to ensure all state updates are complete
-      }
-    } else {
-      console.log('🔴 GameBoard: Undo not available');
+    // Take the last state from history
+    const stateToRestore = undoHistory[undoHistory.length - 1];
+    
+    // Remove the used state from history
+    setUndoHistory(prev => prev.slice(0, -1));
+    
+    console.log('📚 Used state from history, remaining states:', undoHistory.length - 1);
+    
+    // Log detailed restoration info
+    console.log('🔄 Restoring state:', {
+      gridTiles: stateToRestore.grid.flat().filter(Boolean).length,
+      score: stateToRestore.score,
+      nextId: stateToRestore.nextId,
+      powerUpSlots: stateToRestore.powerUpState?.powerUps?.length || 0,
+      frozenTiles: Object.keys(stateToRestore.powerUpState?.frozenTiles || {}).length,
+      slowMotionTurns: stateToRestore.powerUpState?.slowMotionTurns || 0,
+      spawnedUndos: stateToRestore.powerUpState?.spawnedUndos || 0,
+      currentScore: score
+    });
+    
+    // Restore the state and repair tile positions
+    const repairedGrid = repairGridPositions(stateToRestore.grid);
+    setGrid(repairedGrid);
+    setScore(stateToRestore.score);
+    setNextId(stateToRestore.nextId);
+    
+    // Restore the level tracking for power-up generation
+    if (stateToRestore.generatedPowerUpLevels) {
+      generatedPowerUpLevels.current = new Set(stateToRestore.generatedPowerUpLevels);
+      console.log('🔄 Restored generated power-up levels:', stateToRestore.generatedPowerUpLevels);
     }
+    
+    // Handle power-up state restoration - only restore game-affecting states
+    if (stateToRestore.powerUpState) {
+      const currentPowerUps = powerUpState.powerUps; // Keep current power-up slots
+      
+      console.log('🔄 Undo - preserving power-up slots, restoring frozen/slowmo states');
+      console.log('   Power-up slots remain:', currentPowerUps.length);
+      console.log('   ExtraUndos before:', powerUpState.extraUndos, 'useExtraUndo:', useExtraUndo);
+      console.log('   SpawnedUndos: current=', powerUpState.spawnedUndos);
+      
+      setPowerUpState(prev => ({
+        ...prev,
+        powerUps: currentPowerUps, // NEVER restore power-up slots
+        frozenTiles: stateToRestore.powerUpState.frozenTiles, // Restore frozen tiles
+        slowMotionTurns: stateToRestore.powerUpState.slowMotionTurns, // Restore slow motion
+        extraUndos: useExtraUndo ? Math.max(0, prev.extraUndos - 1) : prev.extraUndos, // EINFACH: Wenn Extra-Undo benutzt, dann -1
+        spawnedUndos: prev.spawnedUndos, // NEVER restore spawned undos - keep current value
+        activePowerUp: null, // Reset active power-up
+        swapSelection: null, // Reset swap selection
+        selectingPowerUp: null, // Reset selection state
+        inputLocked: false // Reset input lock
+      }));
+    }
+    
+    // Update undo availability - NEUE LOGIK
+    const remainingStates = undoHistory.length - 1;
+    if (useExtraUndo) {
+      // Extra-Undo wurde verwendet -> canUndo bleibt unverändert
+      // Nichts tun
+    } else if (normalGameUndo) {
+      // Normaler Undo wurde verwendet -> disable normal undo
+      setCanUndo(false);
+    }
+    
+    setActiveScoreAnimations([]);
+    setIsGameOver(false); // Clear game over state when undoing
+    setLocalPendingScore(null); // Clear pending leaderboard entry
+    setScoreHasBeenSaved(false); // Reset save state
+    
+    // IMPORTANT: Don't restore highestTileReached when undoing
+    // This prevents power-up generation when undoing to a previous level
+    // Keep the current highestTileReached to avoid re-triggering power-up generation
+    const currentHighestTile = highestTileReached;
+    const gridHighestTile = getHighestTileLevel(stateToRestore.grid);
+    console.log('🔄 Undo: Keeping highest tile at', currentHighestTile, '(grid has', gridHighestTile, ') - no power-up generation');
+    
+    onPendingScore?.(null); // Clear pending score in parent
+    // Clear undo-after-game-over flag if no more extra undos available
+    if (useExtraUndo && powerUpState.extraUndos <= 1) {
+      setCanUndoAfterGameOver(false);
+    }
+    
+    // Reset flag after state updates are complete
+    setTimeout(() => {
+      isUndoingRef.current = false;
+      console.log('✅ Re-enabled power-up generation');
+    }, 100);
   };
 
   const canMove = (grid: GameGrid): boolean => {
@@ -522,7 +498,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     setScore(0);
     setIsGameOver(false);
     setActiveScoreAnimations([]); // Clear any active score animations
-    setPreviousState(null); // Clear undo state
+    setUndoHistory([]); // Clear undo state
     setUndoHistory([]); // Clear undo history
     setCanUndo(false); // Disable undo
     setLocalPendingScore(null); // Clear pending leaderboard score
@@ -552,15 +528,15 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
 
     switch (powerUp.type) {
       case 'undo':
-        // Simply add one extra undo - history is already maintained
-        console.log('🎮 Undo power-up activated, history length:', undoHistory.length);
+        // Remove power-up from slots and increment extraUndos for UI counter
+        console.log('🎮 Undo power-up activated');
         
         setPowerUpState(prev => {
-          console.log('🎮 Adding extra undo:', prev.extraUndos, '→', prev.extraUndos + 1);
+          console.log('🎮 Incrementing UI extraUndos from', prev.extraUndos, 'to', prev.extraUndos + 1);
           return {
             ...prev,
             powerUps: removePowerUp(prev.powerUps, powerUpId),
-            extraUndos: prev.extraUndos + 1
+            extraUndos: prev.extraUndos + 1 // Increment UI counter when used
           };
         });
         break;
@@ -586,57 +562,33 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     }
   };
 
-  // Get popup title and description based on power-up type
-  const getPowerUpInfo = (selectingPowerUp: SelectingPowerUp): { title: string; description: string } => {
-    if (!selectingPowerUp) return { title: '', description: '' };
-    
-    const picked = selectingPowerUp.picked.length;
-    const required = selectingPowerUp.required;
-    const remaining = required - picked;
-    
-    switch (selectingPowerUp.type) {
-      case 'swap':
-        if (remaining === 2) {
-          return {
-            title: 'Swap Power-Up aktiv!',
-            description: 'Wähle zwei Tiles zum Vertauschen. Klicke nacheinander auf die Tiles, die du tauschen möchtest.'
-          };
+
+  // Create minimal power-up state for undo (excludes powerUps slots)
+  const createUndoPowerUpState = (powerUpState: PowerUpState) => {
+    return {
+      powerUps: [], // Never restore power-up slots through undo
+      frozenTiles: powerUpState.frozenTiles, // Keep frozen tile states 
+      slowMotionTurns: powerUpState.slowMotionTurns, // Keep slow motion effect
+      extraUndos: powerUpState.extraUndos, // Keep extra undos
+      spawnedUndos: powerUpState.spawnedUndos, // Keep spawned undo count
+      activePowerUp: null, // Don't restore active power-up
+      swapSelection: null, // Don't restore swap selection
+      selectingPowerUp: null, // Don't restore selection state
+      inputLocked: false // Reset input lock
+    };
+  };
+
+
+  // Repair grid after restoration to ensure tile positions match their grid coordinates
+  const repairGridPositions = (gridToRepair: GameGrid): GameGrid => {
+    return gridToRepair.map((row, rowIndex) =>
+      row.map((tile, colIndex) => {
+        if (tile) {
+          return { ...tile, row: rowIndex, col: colIndex };
         }
-        if (remaining === 1) {
-          return {
-            title: `Swap Power-Up (${picked}/${required})`,
-            description: 'Wähle das zweite Tile zum Vertauschen.'
-          };
-        }
-        return {
-          title: 'Vertausche Tiles...',
-          description: 'Die Tiles werden jetzt vertauscht.'
-        };
-      case 'delete':
-        if (remaining === 1) {
-          return {
-            title: 'Delete Power-Up aktiv!',
-            description: 'Wähle ein Tile zum Entfernen. Das gewählte Tile verschwindet vom Spielfeld.'
-          };
-        }
-        return {
-          title: 'Entferne Tile...',
-          description: 'Das Tile wird entfernt.'
-        };
-      case 'freeze':
-        if (remaining === 1) {
-          return {
-            title: 'Freeze Power-Up aktiv!',
-            description: 'Wähle ein Tile zum Einfrieren. Das Tile kann für 3 Züge nicht bewegt oder verschmolzen werden.'
-          };
-        }
-        return {
-          title: 'Friere Tile ein...',
-          description: 'Das Tile wird für 3 Züge eingefroren.'
-        };
-      default:
-        return { title: 'Power-Up aktiv!', description: '' };
-    }
+        return null;
+      })
+    );
   };
 
   // Handle power-up selection cancellation
@@ -684,7 +636,21 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         if (picked.length === 1) {
           const { row, col } = picked[0];
           const tile = grid[row][col];
+          
           if (tile && !isTileFrozen(tile.id, powerUpState.frozenTiles)) {
+            // Check if freezing this tile would cause a deadlock (intelligent deadlock prevention)
+            if (!canSafelyFreezeTile(grid, tile.id, powerUpState.frozenTiles, powerUpState.slowMotionTurns)) {
+              // Show hint and cancel power-up selection without consuming the power-up
+              showDeadlockHint(DEADLOCK_MESSAGES.FREEZE_WOULD_CAUSE_DEADLOCK);
+              setPowerUpState(prev => ({
+                ...prev,
+                selectingPowerUp: null,
+                inputLocked: false
+              }));
+              return; // Don't consume the power-up
+            }
+            
+            // Freeze the tile and consume the power-up
             setPowerUpState(prev => ({
               ...prev,
               powerUps: removePowerUp(prev.powerUps, powerUpId),
@@ -842,16 +808,33 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       isJoker: newTile.isJoker
     };
     
+    // Play special sound for joker spawn and block input briefly
+    if (newTile.isJoker) {
+      // Block input for 500ms to prevent accidental merging
+      setIsJokerSpawnLocked(true);
+      setTimeout(() => {
+        setIsJokerSpawnLocked(false);
+      }, 500);
+      
+      // Play sound after short delay to avoid conflicts
+      setTimeout(() => {
+        playJokerSpawn();
+      }, 50);
+    }
+    
     setNextId(prev => prev + 1);
     return newGrid;
   };
 
   const handleMove = (direction: 'up' | 'down' | 'left' | 'right') => {
-    // Block moves during power-up selection
-    if (powerUpState.inputLocked) return;
+    // Block moves during power-up selection or joker spawn
+    if (powerUpState.inputLocked || isJokerSpawnLocked) return;
     
     // Initialize sound system on user interaction
     initSoundOnUserGesture();
+    
+    // Save original state BEFORE making any changes
+    const originalGrid = grid.map(row => [...row]);
     
     // Create a copy of the current grid to test the move
     const newGrid: GameGrid = grid.map(row => [...row]);
@@ -1013,40 +996,30 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     }
 
     if (moved) {
-      // Save state to history and update previousState
+      // Save current state to undo history (simple approach)
       const stateToSave = {
-        grid: grid.map(row => [...row]), // Save original grid state
+        grid: originalGrid, // Save original grid state BEFORE the move
         score,
         nextId,
-        powerUpState: JSON.parse(JSON.stringify(powerUpState)), // Deep copy power-up state
+        powerUpState: createUndoPowerUpState(powerUpState), // Only save undo-relevant power-up state
         generatedPowerUpLevels: Array.from(generatedPowerUpLevels.current) // Save which levels have generated power-ups
       };
       
-      setPreviousState(stateToSave);
-      
-      // Always maintain undo history for potential extra undos (minimum 2 states)
+      // Simple: just maintain the undo history, no separate previousState
       setUndoHistory(prev => {
-        // Save the state BEFORE any power-up generation for this move
-        const stateBeforePowerUps = {
-          ...stateToSave,
-          powerUpState: {
-            ...stateToSave.powerUpState,
-            // Keep current power-ups but don't include new ones that might be generated this move
-          }
-        };
+        const newHistory = [...prev, stateToSave];
+        // Dynamic history size: 1 baseline + spawned undo power-ups
+        const maxStates = 1 + powerUpState.spawnedUndos;
         
-        const newHistory = [...prev, stateBeforePowerUps];
-        // Keep at least 2 states, more if we have extra undos or potential power-ups
-        const minStates = 2;
-        const extraStates = powerUpState.extraUndos;
-        const maxStates = Math.max(minStates, extraStates + 2);
+        console.log('📚 Saving state to history. Total states:', newHistory.length, 'Max:', maxStates);
         
+        // Keep only the last n states
         if (newHistory.length > maxStates) {
           return newHistory.slice(-maxStates);
         }
         return newHistory;
       });
-      console.log('📚 Maintaining undo history, states:', Math.max(2, powerUpState.extraUndos + 2));
+      
       
       const finalGrid = powerUpState.slowMotionTurns > 0 ? newGrid : spawnRandomTile(newGrid);
       setGrid(finalGrid);
@@ -1092,13 +1065,15 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           
           setPowerUpState(prev => ({
             ...prev,
-            powerUps: [...prev.powerUps, newPowerUp]
+            powerUps: [...prev.powerUps, newPowerUp],
+            // Increase spawnedUndos counter for history size calculation
+            spawnedUndos: newPowerUp.type === 'undo' ? prev.spawnedUndos + 1 : prev.spawnedUndos
           }));
           
-          // If it's an undo power-up, prepare for extra states
+          // If it's an undo power-up, log the spawn
           if (newPowerUp.type === 'undo') {
-            console.log('🎯 Undo power-up spawned, ensuring history is ready');
-            // History is already maintained automatically, no need to add extra logic here
+            console.log('🎯 Undo power-up spawned, spawnedUndos increased to:', powerUpState.spawnedUndos + 1);
+            console.log('🎯 UI extraUndos remains at:', powerUpState.extraUndos);
           }
         }
       } else if (isNewHighest) {
@@ -1120,7 +1095,32 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         setPreRestartState(null);
       }
       
-      // Check for game over after spawning new tile
+      // Check for deadlock and automatically resolve it before checking game over
+      if (!canMakeAnyMove(finalGrid, powerUpState.frozenTiles)) {
+        console.log('🚨 Deadlock detected - attempting automatic resolution');
+        
+        // Try to resolve deadlock
+        const frozenTileId = getRandomFrozenTileId(powerUpState.frozenTiles);
+        if (frozenTileId) {
+          // Unfreeze a random tile
+          console.log('🧊 Unfreezing tile to resolve deadlock:', frozenTileId);
+          setPowerUpState(prev => ({
+            ...prev,
+            frozenTiles: unfreezeTile(prev.frozenTiles, frozenTileId)
+          }));
+          showDeadlockHint(DEADLOCK_MESSAGES.FROZEN_TILE_FREED);
+        } else if (powerUpState.slowMotionTurns > 0) {
+          // Disable slow motion
+          console.log('⏳ Disabling slow motion to resolve deadlock');
+          setPowerUpState(prev => ({
+            ...prev,
+            slowMotionTurns: 0
+          }));
+          showDeadlockHint(DEADLOCK_MESSAGES.SLOWMO_DISABLED);
+        }
+      }
+      
+      // Check for game over after spawning new tile and deadlock resolution
       if (checkGameOver(finalGrid)) {
         setIsGameOver(true);
         playGameOver();
@@ -1178,7 +1178,6 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         nextId,
         isPaused: false,
         timestamp: Date.now(),
-        previousState,
         preRestartState,
         canUndo,
         wasRestartedViaHold,
@@ -1314,19 +1313,17 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
           />
           
-          {/* PowerUp Popup for Selection Mode - does not affect layout */}
-          {(() => {
-            const popupInfo = getPowerUpInfo(powerUpState.selectingPowerUp);
-            return (
-              <PowerUpPopup
-                isOpen={!!powerUpState.selectingPowerUp}
-                title={popupInfo.title}
-                description={popupInfo.description}
-                cancelLabel="Abbrechen"
-                onCancel={handleCancelSelection}
-              />
-            );
-          })()}
+          {/* PowerUp Hint floating at top - does not affect layout */}
+          <PowerUpHint
+            selectingPowerUp={powerUpState.selectingPowerUp}
+            onCancel={handleCancelSelection}
+            gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
+          />
+          
+          <DeadlockHint
+            message={deadlockHint}
+            gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
+          />
         </div>
         
         {/* Centered Game Grid */}
@@ -1445,7 +1442,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             disabled={(isGameOver && !(canUndoAfterGameOver() || powerUpState.extraUndos > 0)) || powerUpState.inputLocked}
             allowUndoWhenDisabled={
               (isGameOver && canUndoAfterGameOver() && !scoreHasBeenSaved && !hasFinalizedGame()) ||
-              (isGameOver && powerUpState.extraUndos > 0 && (previousState || undoHistory.length > 0) && !scoreHasBeenSaved && !hasFinalizedGame())
+              (isGameOver && powerUpState.extraUndos > 0 && undoHistory.length > 0 && !scoreHasBeenSaved && !hasFinalizedGame())
             }
             gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
             extraUndos={powerUpState.extraUndos}

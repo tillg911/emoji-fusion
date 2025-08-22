@@ -49,7 +49,7 @@ export const AnimatedTile = ({
   const x = tile.col * (cellSize + CELL_GAP);
   const y = tile.row * (cellSize + CELL_GAP);
   
-  let tileColor = tile.isJoker ? '#8B5CF6' : getTileColor(tile.level); // Purple for joker
+  let tileColor = tile.isJoker ? 'linear-gradient(45deg, #FFD700, #FFA500, #FF69B4, #9370DB)' : getTileColor(tile.level); // Gradient for joker
   let textColor = tile.isJoker ? '#FFFFFF' : getTileTextColor(tile.level);
   
   // Apply frozen overlay
@@ -84,9 +84,11 @@ export const AnimatedTile = ({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: tile.justMerged 
+        background: tile.justMerged 
           ? 'rgba(255, 215, 0, 0.8)'
-          : tileColor,
+          : tile.isJoker 
+            ? tileColor
+            : tileColor,
         borderRadius: TILE_RADIUS,
         border: isPicked
           ? '3px solid #059669' // Darker emerald for picked
@@ -103,20 +105,46 @@ export const AnimatedTile = ({
         boxSizing: 'border-box',
         boxShadow: tile.justMerged 
           ? '0 4px 16px rgba(255, 215, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.15)'
-          : isPicked
-            ? '0 4px 16px rgba(5, 150, 105, 0.5), 0 2px 8px rgba(0, 0, 0, 0.15)'
-            : isSelected 
-              ? '0 4px 16px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15)'
-              : isFrozen
-                ? '0 4px 16px rgba(59, 130, 246, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15)'
-                : isSelectable
-                  ? '0 4px 12px rgba(245, 158, 11, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1)'
-                  : '0 2px 8px rgba(0, 0, 0, 0.1)',
+          : tile.isJoker && !isPicked && !isSelected && !isFrozen && !isSelectable
+            ? '0 4px 20px rgba(255, 215, 0, 0.6), 0 6px 16px rgba(255, 105, 180, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15)'
+            : isPicked
+              ? '0 4px 16px rgba(5, 150, 105, 0.5), 0 2px 8px rgba(0, 0, 0, 0.15)'
+              : isSelected 
+                ? '0 4px 16px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15)'
+                : isFrozen
+                  ? '0 4px 16px rgba(59, 130, 246, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15)'
+                  : isSelectable
+                    ? '0 4px 12px rgba(245, 158, 11, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1)'
+                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
         zIndex: tile.justMerged ? 100 : isSelected ? 50 : 10,
         padding: TILE_PADDING,
-        cursor: (canInteract || isSelectable) ? (isSelectable ? 'crosshair' : 'pointer') : 'default',
+        cursor: (canInteract || isSelectable) ? 'pointer' : 'default',
       }}
     >
+      {/* Joker sparkling overlay */}
+      {tile.isJoker && !isFrozen && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: TILE_RADIUS,
+          pointerEvents: 'none',
+          overflow: 'hidden',
+          zIndex: 1
+        }}>
+          {/* Sparkling animation */}
+          <div style={{
+            position: 'absolute',
+            width: '200%',
+            height: '200%',
+            background: 'radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.8) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.6) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255, 215, 0, 0.4) 0%, transparent 50%)',
+            animation: 'sparkle 2s ease-in-out infinite',
+            transform: 'translate(-50%, -50%)',
+            top: '50%',
+            left: '50%'
+          }} />
+        </div>
+      )}
+      
       {/* Frozen overlay */}
       {isFrozen && (
         <div style={{
@@ -131,7 +159,7 @@ export const AnimatedTile = ({
           fontSize: '12px',
           color: 'white',
           fontWeight: 'bold',
-          zIndex: 1
+          zIndex: 2
         }}>
           ❄️
         </div>
@@ -163,6 +191,20 @@ export const AnimatedTile = ({
       >
         {tile.isJoker ? 'JOKER' : tile.level}
       </div>
+      
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes sparkle {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.8;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

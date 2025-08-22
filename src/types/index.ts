@@ -35,7 +35,8 @@ export interface PowerUpState {
   powerUps: PowerUp[];
   frozenTiles: { [tileId: string]: number };
   slowMotionTurns: number;
-  extraUndos: number;
+  extraUndos: number; // Used extra undos (for UI counter)
+  spawnedUndos: number; // Total spawned undo power-ups (for history size)
   activePowerUp: PowerUpType | null;
   swapSelection: { tileId: number; position: { row: number; col: number } } | null;
   selectingPowerUp: SelectingPowerUp;

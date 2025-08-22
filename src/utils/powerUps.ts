@@ -1,4 +1,5 @@
-import { PowerUp, PowerUpType, PowerUpState, CellRef, SelectingPowerUp } from '../types';
+import { PowerUp, PowerUpType, PowerUpState, CellRef, SelectingPowerUp, GameGrid } from '../types';
+import { wouldFreezingCauseDeadlock } from './deadlock';
 
 // Generate a random power-up
 export const generateRandomPowerUp = (): PowerUp => {
@@ -31,6 +32,7 @@ export const initializePowerUpState = (): PowerUpState => ({
   frozenTiles: {},
   slowMotionTurns: 0,
   extraUndos: 0,
+  spawnedUndos: 0,
   activePowerUp: null,
   swapSelection: null,
   selectingPowerUp: null,
@@ -155,9 +157,41 @@ export const validatePowerUpState = (state: PowerUpState): PowerUpState => {
     frozenTiles: typeof state.frozenTiles === 'object' ? state.frozenTiles : {},
     slowMotionTurns: Math.max(0, state.slowMotionTurns || 0),
     extraUndos: Math.max(0, state.extraUndos || 0),
+    spawnedUndos: Math.max(0, state.spawnedUndos || 0),
     activePowerUp: state.activePowerUp && isPowerUpType(state.activePowerUp) ? state.activePowerUp : null,
     swapSelection: state.swapSelection || null,
     selectingPowerUp: state.selectingPowerUp || null,
     inputLocked: Boolean(state.inputLocked)
   };
+};
+
+// Deadlock prevention utilities
+export const countFrozenTiles = (frozenTiles: { [tileId: string]: number }): number => {
+  return Object.values(frozenTiles).filter(turns => turns > 0).length;
+};
+
+export const canSafelyFreezeTile = (
+  grid: GameGrid,
+  tileId: number, 
+  frozenTiles: { [tileId: string]: number },
+  slowMotionTurns: number
+): boolean => {
+  return !wouldFreezingCauseDeadlock(grid, tileId, frozenTiles, slowMotionTurns);
+};
+
+export const getRandomFrozenTileId = (frozenTiles: { [tileId: string]: number }): string | null => {
+  const frozenTileIds = Object.keys(frozenTiles).filter(tileId => frozenTiles[tileId] > 0);
+  if (frozenTileIds.length === 0) return null;
+  
+  const randomIndex = Math.floor(Math.random() * frozenTileIds.length);
+  return frozenTileIds[randomIndex];
+};
+
+export const unfreezeTile = (
+  frozenTiles: { [tileId: string]: number }, 
+  tileId: string
+): { [tileId: string]: number } => {
+  const updated = { ...frozenTiles };
+  delete updated[tileId];
+  return updated;
 };
