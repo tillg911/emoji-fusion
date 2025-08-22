@@ -113,11 +113,19 @@ export const startPowerUpSelection = (type: 'swap' | 'delete' | 'freeze', powerU
   }
 };
 
-export const canPickTile = (row: number, col: number, grid: any[][], selectingPowerUp: SelectingPowerUp, frozenTiles: { [tileId: string]: number }): boolean => {
-  if (!selectingPowerUp || !grid[row][col]) return false;
-  
-  const tile = grid[row][col];
-  
+export const canPickTile = (
+  row: number,
+  col: number,
+  grid: any[][],
+  selectingPowerUp: SelectingPowerUp,
+  frozenTiles: { [tileId: string]: number }
+): boolean => {
+  if (!selectingPowerUp) return false;
+
+  // Safely access the grid to avoid out-of-bounds errors
+  const tile = grid[row]?.[col];
+  if (!tile) return false;
+
   // Swap: can't select frozen tiles (they can't be moved)
   if (selectingPowerUp.type === 'swap' && isTileFrozen(tile.id, frozenTiles)) {
     return false;
