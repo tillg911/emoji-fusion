@@ -291,41 +291,6 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     return highest || 1; // Return 1 if no normal tiles exist
   };
 
-  // Helper function to find the first valid merge target for a joker (like normal tile movement)
-  const findBestMergeTarget = (grid: GameGrid, jokerRow: number, jokerCol: number, direction: string): {row: number, col: number} | null => {
-    // Define movement direction
-    const directions = {
-      'left': {dRow: 0, dCol: -1},
-      'right': {dRow: 0, dCol: 1},
-      'up': {dRow: -1, dCol: 0},
-      'down': {dRow: 1, dCol: 0}
-    };
-    
-    const {dRow, dCol} = directions[direction as keyof typeof directions];
-    
-    // Scan in the movement direction for the first tile we encounter
-    let checkRow = jokerRow + dRow;
-    let checkCol = jokerCol + dCol;
-    
-    while (checkRow >= 0 && checkRow < 4 && checkCol >= 0 && checkCol < 4) {
-      const tile = grid[checkRow][checkCol];
-      if (tile) {
-        // Found a tile - check if we can merge with it
-        if (canMerge(grid[jokerRow][jokerCol]!, tile, powerUpState.frozenTiles)) {
-          return {row: checkRow, col: checkCol};
-        } else {
-          // Found a tile we can't merge with - stop here (like normal tiles)
-          return null;
-        }
-      }
-      
-      checkRow += dRow;
-      checkCol += dCol;
-    }
-    
-    // No tiles found in this direction
-    return null;
-  };
 
   // Helper function to process joker movement (like normal tiles)
   const processJokerMovement = (grid: GameGrid, row: number, col: number, direction: string): {moved: boolean, merged: boolean, jokerFusion: boolean} => {
@@ -1579,7 +1544,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   const actualCellSize = Math.max(cellSize, minCellSize);
 
   return (
-    <ResponsiveContainer allowScroll={true}>
+    <ResponsiveContainer allowScroll={false}>
       {/* Header Section - Minimized */}
       <div style={{
         display: 'flex',
@@ -1589,8 +1554,8 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         width: '100%',
         flexShrink: 0, // Don't shrink header
         position: 'relative',
-        paddingTop: DESIGN_TOKENS.spacing.lg,
-        marginTop: DESIGN_TOKENS.spacing.md,
+        paddingTop: viewportWidth < 480 ? DESIGN_TOKENS.spacing.sm : DESIGN_TOKENS.spacing.lg,
+        marginTop: viewportWidth < 480 ? '25px' : DESIGN_TOKENS.spacing.md, // 25px higher on mobile
       }}>
         
         {/* Start Button - Moved to top */}
@@ -1609,10 +1574,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           maxWidth: `${(actualCellSize + CELL_GAP) * 4 - CELL_GAP}px`,
           minWidth: '280px',
           gap: DESIGN_TOKENS.spacing.md,
+          marginBottom: viewportWidth < 480 ? DESIGN_TOKENS.spacing.md : DESIGN_TOKENS.spacing.lg, // More margin to prevent overlap
         }}>
           {/* Score Display */}
           <div style={{ 
-            fontSize: DESIGN_TOKENS.fontSize.lg, 
+            fontSize: viewportWidth < 480 ? DESIGN_TOKENS.fontSize.base : DESIGN_TOKENS.fontSize.lg, 
             color: '#666',
             margin: '0',
             fontWeight: '600',
@@ -1623,7 +1589,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           
           {/* PowerUp Count */}
           <div style={{
-            fontSize: DESIGN_TOKENS.fontSize.lg,
+            fontSize: viewportWidth < 480 ? DESIGN_TOKENS.fontSize.base : DESIGN_TOKENS.fontSize.lg,
             color: '#666',
             fontWeight: '600',
             whiteSpace: 'nowrap',
@@ -1649,7 +1615,8 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          marginBottom: DESIGN_TOKENS.spacing.md,
+          marginBottom: viewportWidth < 480 ? DESIGN_TOKENS.spacing.xs : DESIGN_TOKENS.spacing.md,
+          marginTop: viewportWidth < 480 ? DESIGN_TOKENS.spacing.md : DESIGN_TOKENS.spacing.lg, // More margin to prevent overlap
         }}>
           <PowerUpBar
             powerUps={powerUpState.powerUps}
@@ -1814,7 +1781,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           gap: DESIGN_TOKENS.spacing.md,
           width: '100%',
           flexShrink: 0, // Don't shrink controls
-          marginTop: DESIGN_TOKENS.spacing.lg, // Fixed spacing from game grid
+          marginTop: viewportWidth < 480 ? DESIGN_TOKENS.spacing.xs : DESIGN_TOKENS.spacing.lg, // Much smaller margin on mobile
         }}>
           {/* Undo Button - Always below the grid with fixed spacing */}
           <UndoButton

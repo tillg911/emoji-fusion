@@ -1,5 +1,4 @@
 import { SelectingPowerUp } from '../types';
-import { GameButton } from './GameButton';
 import { DESIGN_TOKENS } from '../constants/design-system';
 
 interface PowerUpHintProps {
@@ -32,15 +31,18 @@ const getSelectionText = (selectingPowerUp: SelectingPowerUp): string => {
 export const PowerUpHint = ({ selectingPowerUp, onCancel, gridWidth }: PowerUpHintProps) => {
   if (!selectingPowerUp) return null;
 
+  // Check if mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 480;
+
   return (
     <div style={{
       position: 'fixed',
-      top: '20px',
+      top: isMobile ? '10px' : '20px',
       left: '50%',
       transform: 'translateX(-50%)',
-      width: '100%',
-      maxWidth: `${Math.max(gridWidth, 320)}px`,
-      padding: '0 20px',
+      width: isMobile ? 'calc(100vw - 20px)' : '100%',
+      maxWidth: isMobile ? '320px' : `${Math.max(gridWidth, 320)}px`,
+      padding: isMobile ? '0 5px' : '0 10px',
       zIndex: 100, // Above game elements but below full overlays
       pointerEvents: 'none', // Allow clicks to pass through to game
       display: 'flex',
@@ -49,11 +51,11 @@ export const PowerUpHint = ({ selectingPowerUp, onCancel, gridWidth }: PowerUpHi
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '500px',
-        padding: DESIGN_TOKENS.spacing.md,
+        maxWidth: '100%', // Use full available width
+        padding: isMobile ? DESIGN_TOKENS.spacing.xs : DESIGN_TOKENS.spacing.sm,
         backgroundColor: 'rgba(255, 255, 255, 0.95)', // Same as PowerUpBar
         border: '2px solid rgba(0, 0, 0, 0.1)', // Same as PowerUpBar
-        borderRadius: '12px', // Same as PowerUpBar
+        borderRadius: isMobile ? '8px' : '12px',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)', // Similar to PowerUpBar but slightly stronger
         backdropFilter: 'blur(8px)', // Add blur effect for modern look
         pointerEvents: 'auto', // Re-enable clicks on the hint itself
@@ -62,33 +64,49 @@ export const PowerUpHint = ({ selectingPowerUp, onCancel, gridWidth }: PowerUpHi
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: DESIGN_TOKENS.spacing.md,
+          gap: isMobile ? DESIGN_TOKENS.spacing.xs : DESIGN_TOKENS.spacing.sm,
         }}>
           <div style={{
             flex: 1,
             color: '#333333', // Standard dark text color like other UI elements
-            fontSize: 'clamp(13px, 2.8vw, 15px)',
+            fontSize: isMobile ? 'clamp(10px, 2.2vw, 12px)' : 'clamp(12px, 2.5vw, 14px)',
             fontWeight: '600',
-            lineHeight: 1.3,
+            lineHeight: 1.2,
+            wordBreak: 'break-word', // Allow text to break if needed
           }}>
             {getSelectionText(selectingPowerUp)}
           </div>
           
-          <GameButton
-            variant="secondary"
-            size="sm"
+          <button
             onClick={onCancel}
             style={{
-              minWidth: '80px',
-              padding: '6px 12px',
-              fontSize: 'clamp(12px, 2.5vw, 14px)',
-              fontWeight: '600',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              border: 'none',
+              backgroundColor: '#F87171', // Red color
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
               pointerEvents: 'auto',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#EF4444'; // Darker red on hover
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#F87171';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            Abbrechen
-          </GameButton>
+            ✕
+          </button>
         </div>
         
         {/* Progress indicator */}

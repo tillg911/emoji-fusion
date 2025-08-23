@@ -168,7 +168,7 @@ export const PowerUpBar = ({ powerUps, onUsePowerUp, disabled = false, gridWidth
             }}
             title={powerUp ? `${POWER_UP_EMOJIS[powerUp.type]} ${powerUp.type}` : 'Empty slot'}
           >
-            {powerUp ? POWER_UP_EMOJIS[powerUp.type] : '⭕'}
+            {powerUp ? POWER_UP_EMOJIS[powerUp.type] : ''}
             
             {/* Subtle glow effect for active power-ups */}
             {powerUp && (

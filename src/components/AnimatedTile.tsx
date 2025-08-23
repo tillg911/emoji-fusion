@@ -73,9 +73,21 @@ export const AnimatedTile = ({
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent scrolling and other touch behaviors
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleClick();
+  };
+
   return (
     <div
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       style={{
         position: 'absolute',
         left: x,
@@ -121,6 +133,12 @@ export const AnimatedTile = ({
         zIndex: tile.justMerged ? 100 : isSelected ? 50 : 10,
         padding: TILE_PADDING,
         cursor: (canInteract || isSelectable) ? 'pointer' : 'default',
+        // Mobile touch improvements
+        WebkitTapHighlightColor: 'rgba(0,0,0,0)', // Remove iOS tap highlight
+        WebkitTouchCallout: 'none', // Disable iOS callout
+        WebkitUserSelect: 'none', // Disable text selection
+        userSelect: 'none',
+        touchAction: 'manipulation', // Better touch handling
       }}
     >
       {/* Joker sparkling overlay */}
