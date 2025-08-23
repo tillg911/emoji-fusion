@@ -71,15 +71,21 @@ export const isTileFrozen = (tileId: number, frozenTiles: { [tileId: string]: nu
   return frozenTiles[tileId.toString()] > 0;
 };
 
-// Freeze a tile for a specified number of turns
+// Get remaining freeze turns for a tile
+export const getFreezeRemainingTurns = (tileId: number, frozenTiles: { [tileId: string]: number }): number => {
+  return frozenTiles[tileId.toString()] || 0;
+};
+
+// Freeze a tile for a specified number of turns (adds to existing freeze time)
 export const freezeTile = (
   frozenTiles: { [tileId: string]: number }, 
   tileId: number, 
   turns: number = 3
 ): { [tileId: string]: number } => {
+  const currentTurns = frozenTiles[tileId.toString()] || 0;
   return {
     ...frozenTiles,
-    [tileId.toString()]: turns
+    [tileId.toString()]: currentTurns + turns
   };
 };
 

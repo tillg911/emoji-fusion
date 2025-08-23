@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getLeaderboard, LeaderboardEntry } from '../utils/storage';
 import { GameButton } from './GameButton';
 import { ResponsiveContainer } from './ResponsiveContainer';
+import { FloatingEmojis } from './FloatingEmojis';
 import { useResponsive } from '../hooks/useResponsive';
 import { safePlayerName } from '../utils/playerNameUtils';
 import { EMOJI_MAP } from '../constants/emojis';
@@ -69,6 +70,13 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
 
   return (
     <ResponsiveContainer>
+      {/* Floating Emojis Background */}
+      <FloatingEmojis 
+        containerWidth={typeof window !== 'undefined' ? window.innerWidth : 800}
+        containerHeight={typeof window !== 'undefined' ? window.innerHeight : 600}
+        maxEmojis={20}
+      />
+      
       {/* Screen Title */}
       <div style={{
         fontSize: DESIGN_TOKENS.fontSize['3xl'],
@@ -77,6 +85,8 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         textAlign: 'center',
         margin: '0',
         textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        position: 'relative',
+        zIndex: 1,
       }}>
 {t('leaderboard.title')}
       </div>
@@ -97,6 +107,8 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
         flexDirection: 'column',
         overflowY: 'auto',
         margin: '0',
+        position: 'relative',
+        zIndex: 1,
       }}>
         {isLoading ? (
           <div style={{
@@ -301,6 +313,8 @@ export const LeaderboardScreen = ({ onBackToHome }: LeaderboardScreenProps) => {
       <div style={{
         width: '100%',
         maxWidth: `${gridButtonWidth}px`,
+        position: 'relative',
+        zIndex: 1,
       }}>
         <GameButton 
           onClick={handleBackToHome}

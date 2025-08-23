@@ -9,6 +9,7 @@ interface AnimatedTileProps {
   cellSize: number;
   onTileClick?: (tile: Tile, row: number, col: number) => void;
   isFrozen?: boolean;
+  freezeTurns?: number;
   isSelected?: boolean;
   canInteract?: boolean;
   isSelectable?: boolean;
@@ -20,6 +21,7 @@ export const AnimatedTile = ({
   cellSize, 
   onTileClick, 
   isFrozen = false, 
+  freezeTurns = 0,
   isSelected = false, 
   canInteract = false,
   isSelectable = false,
@@ -154,14 +156,31 @@ export const AnimatedTile = ({
           borderRadius: TILE_RADIUS,
           pointerEvents: 'none',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '12px',
-          color: 'white',
-          fontWeight: 'bold',
           zIndex: 2
         }}>
-          ❄️
+          <div style={{
+            fontSize: Math.max(8, cellSize * 0.15),
+            color: 'white',
+            fontWeight: 'bold',
+            marginBottom: '1px'
+          }}>
+            ❄️
+          </div>
+          <div style={{
+            fontSize: Math.max(6, cellSize * 0.12),
+            color: 'white',
+            fontWeight: 'bold',
+            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            borderRadius: '8px',
+            padding: '1px 4px',
+            minWidth: '12px',
+            textAlign: 'center'
+          }}>
+            {freezeTurns}
+          </div>
         </div>
       )}
       <div

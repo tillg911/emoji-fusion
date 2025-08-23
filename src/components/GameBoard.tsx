@@ -13,10 +13,10 @@ import { DeadlockHint } from './DeadlockHint';
 import { TILE_RADIUS, GRID_BORDER_WIDTH, GRID_BORDER_COLOR, GRID_BACKGROUND_COLOR, CELL_GAP } from '../constants/styles';
 import { DESIGN_TOKENS } from '../constants/design-system';
 import { getHighScore, setHighScore, saveGameState, getSavedGameState, clearSavedGameState, isTopScore, addScoreToLeaderboard, finalizeCurrentGame, hasFinalizedGame, canUndoAfterGameOver, setCanUndoAfterGameOver, updateMaxDiscoveredRank } from '../utils/storage';
-import { JOKER_LEVEL } from '../constants/emojis';
+import { JOKER_LEVEL, JOKER_FUSION_BONUS_MULTIPLIER } from '../constants/emojis';
 import { useKeyboardControls } from '../hooks/useKeyboardControls';
 import { useSwipeDetection } from '../hooks/useSwipeDetection';
-import { initSoundOnUserGesture, playMove, playMerge, playDenied, playGameOver, playJokerSpawn } from '../utils/sound';
+import { initSoundOnUserGesture, playMove, playMerge, playDenied, playGameOver, playJokerSpawn, playTop100 } from '../utils/sound';
 import { 
   generateRandomPowerUp, 
   shouldGeneratePowerUp, 
@@ -24,6 +24,7 @@ import {
   removePowerUp,
   updateFrozenTiles,
   isTileFrozen,
+  getFreezeRemainingTurns,
   freezeTile,
   validatePowerUpState,
   startPowerUpSelection,
@@ -61,15 +62,20 @@ const canMerge = (tile1: Tile, tile2: Tile, frozenTiles: { [tileId: string]: num
   if (tile1.isJoker && !tile2.isJoker) return true;
   if (tile2.isJoker && !tile1.isJoker) return true;
   
-  // Two jokers cannot merge with each other
-  if (tile1.isJoker && tile2.isJoker) return false;
+  // Two jokers can merge with each other for special joker fusion
+  if (tile1.isJoker && tile2.isJoker) return true;
   
   // Regular tiles can only merge if they have the same level
   return tile1.level === tile2.level;
 };
 
 // Calculate the result of a merge (handles joker logic)
-const getMergeResult = (targetTile: Tile, movingTile: Tile): {level: number, isJoker: boolean} => {
+const getMergeResult = (targetTile: Tile, movingTile: Tile): {level: number, isJoker: boolean, isJokerFusion?: boolean} => {
+  // Joker + Joker = Special Fusion (handled separately)
+  if (targetTile.isJoker && movingTile.isJoker) {
+    return { level: -1, isJoker: false, isJokerFusion: true };
+  }
+  
   // If either tile is a joker, the result is the non-joker tile's next level
   if (targetTile.isJoker && !movingTile.isJoker) {
     return { level: movingTile.level + 1, isJoker: false };
@@ -82,15 +88,15 @@ const getMergeResult = (targetTile: Tile, movingTile: Tile): {level: number, isJ
   return { level: targetTile.level + 1, isJoker: false };
 };
 
-// Generate tile with probabilities: 2% joker, 88% level 1, 10% level 2
+// Generate tile with probabilities: 90% level 1, 9% level 2, 1% joker
 const generateTile = (): {level: number, isJoker: boolean} => {
   const random = Math.random();
-  if (random < 0.02) { // 2% chance for joker
-    return { level: JOKER_LEVEL, isJoker: true };
-  } else if (random < 0.9) { // 40% chance for level 1 (0.4 out of remaining 0.5)
+  if (random < 0.9) { // 90% chance for level 1
     return { level: 1, isJoker: false };
+  } else if (random < 0.99) { // 9% chance for level 2 (0.9 to 0.99)
+    return { level: 2, isJoker: false };
   } else {
-    return { level: 2, isJoker: false }; // 10% chance for level 2
+    return { level: JOKER_LEVEL, isJoker: true }; // 1% chance for joker (0.99 to 1.0)
   }
 };
 
@@ -235,6 +241,9 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   
   // Joker spawn input lock
   const [isJokerSpawnLocked, setIsJokerSpawnLocked] = useState(false);
+  
+  // Joker fusion banner state
+  const [jokerFusionBanner, setJokerFusionBanner] = useState<string | null>(null);
 
   // Helper function to add score animation
   const addScoreAnimation = (score: number, row: number, col: number) => {
@@ -260,6 +269,179 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
   const showDeadlockHint = (message: string) => {
     setDeadlockHint(message);
     setTimeout(() => setDeadlockHint(null), 3000); // Hide after 3 seconds
+  };
+
+  // Helper function to show joker fusion banner
+  const showJokerFusionBanner = (message: string) => {
+    setJokerFusionBanner(message);
+    setTimeout(() => setJokerFusionBanner(null), 3000); // Hide after 3 seconds
+  };
+
+  // Helper function to get highest normal tile level on the board (excluding jokers)
+  const getHighestNormalTileLevel = (grid: GameGrid): number => {
+    let highest = 0;
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 4; col++) {
+        const tile = grid[row][col];
+        if (tile && !tile.isJoker && tile.level > highest) {
+          highest = tile.level;
+        }
+      }
+    }
+    return highest || 1; // Return 1 if no normal tiles exist
+  };
+
+  // Helper function to find the first valid merge target for a joker (like normal tile movement)
+  const findBestMergeTarget = (grid: GameGrid, jokerRow: number, jokerCol: number, direction: string): {row: number, col: number} | null => {
+    // Define movement direction
+    const directions = {
+      'left': {dRow: 0, dCol: -1},
+      'right': {dRow: 0, dCol: 1},
+      'up': {dRow: -1, dCol: 0},
+      'down': {dRow: 1, dCol: 0}
+    };
+    
+    const {dRow, dCol} = directions[direction as keyof typeof directions];
+    
+    // Scan in the movement direction for the first tile we encounter
+    let checkRow = jokerRow + dRow;
+    let checkCol = jokerCol + dCol;
+    
+    while (checkRow >= 0 && checkRow < 4 && checkCol >= 0 && checkCol < 4) {
+      const tile = grid[checkRow][checkCol];
+      if (tile) {
+        // Found a tile - check if we can merge with it
+        if (canMerge(grid[jokerRow][jokerCol]!, tile, powerUpState.frozenTiles)) {
+          return {row: checkRow, col: checkCol};
+        } else {
+          // Found a tile we can't merge with - stop here (like normal tiles)
+          return null;
+        }
+      }
+      
+      checkRow += dRow;
+      checkCol += dCol;
+    }
+    
+    // No tiles found in this direction
+    return null;
+  };
+
+  // Helper function to process joker movement (like normal tiles)
+  const processJokerMovement = (grid: GameGrid, row: number, col: number, direction: string): {moved: boolean, merged: boolean, jokerFusion: boolean} => {
+    const jokerTile = grid[row][col]!;
+    if (!jokerTile.isJoker) return {moved: false, merged: false, jokerFusion: false};
+    
+    // Define movement direction
+    const directions = {
+      'left': {dRow: 0, dCol: -1},
+      'right': {dRow: 0, dCol: 1},
+      'up': {dRow: -1, dCol: 0},
+      'down': {dRow: 1, dCol: 0}
+    };
+    
+    const {dRow, dCol} = directions[direction as keyof typeof directions];
+    
+    // Move like a normal tile - find the furthest empty position
+    let newRow = row;
+    let newCol = col;
+    
+    // Move to furthest empty position
+    while (true) {
+      const nextRow = newRow + dRow;
+      const nextCol = newCol + dCol;
+      
+      // Check bounds
+      if (nextRow < 0 || nextRow >= 4 || nextCol < 0 || nextCol >= 4) break;
+      
+      const nextTile = grid[nextRow][nextCol];
+      
+      if (!nextTile) {
+        // Empty cell - move there
+        newRow = nextRow;
+        newCol = nextCol;
+      } else {
+        // Found a tile - check if we can merge
+        if (canMerge(jokerTile, nextTile, powerUpState.frozenTiles)) {
+          const mergeResult = getMergeResult(nextTile, jokerTile);
+          
+          if (mergeResult.isJokerFusion) {
+            // Handle joker fusion
+            const maxLevel = getHighestNormalTileLevel(grid);
+            const { newGrid: fusedGrid, bonus } = applyJokerJokerFusion(grid, maxLevel);
+            
+            // Replace the entire grid with the fused version
+            for (let r = 0; r < 4; r++) {
+              for (let c = 0; c < 4; c++) {
+                grid[r][c] = fusedGrid[r][c];
+              }
+            }
+            
+            setScore(prev => prev + bonus);
+            addScoreAnimation(bonus, nextRow, nextCol);
+            updateMaxDiscoveredRank(maxLevel);
+            showJokerFusionBanner(`Joker-Fusion! Alle Tiles auf Level ${maxLevel} umgewandelt`);
+            playTop100();
+            
+            return {moved: true, merged: true, jokerFusion: true};
+          } else {
+            // Normal merge
+            const mergeScore = Math.pow(2, mergeResult.level);
+            grid[nextRow][nextCol] = {
+              ...nextTile,
+              level: mergeResult.level,
+              isJoker: mergeResult.isJoker,
+              merged: true,
+              justMerged: true
+            };
+            grid[row][col] = null;
+            
+            setScore(prev => prev + mergeScore);
+            addScoreAnimation(mergeScore, nextRow, nextCol);
+            updateMaxDiscoveredRank(mergeResult.level);
+            
+            return {moved: true, merged: true, jokerFusion: false};
+          }
+        }
+        // Can't merge with this tile - stop here
+        break;
+      }
+    }
+    
+    // Move to the final position if we moved at all
+    if (newRow !== row || newCol !== col) {
+      grid[newRow][newCol] = { ...jokerTile, row: newRow, col: newCol };
+      grid[row][col] = null;
+      return {moved: true, merged: false, jokerFusion: false};
+    }
+    
+    return {moved: false, merged: false, jokerFusion: false};
+  };
+
+  // Helper function to apply joker+joker fusion
+  const applyJokerJokerFusion = (grid: GameGrid, maxLevel: number): { newGrid: GameGrid; bonus: number } => {
+    const newGrid = grid.map(row => [...row]);
+    
+    // Convert all tiles to normal tiles with maxLevel
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 4; col++) {
+        const tile = newGrid[row][col];
+        if (tile) {
+          newGrid[row][col] = {
+            ...tile,
+            level: maxLevel,
+            isJoker: false,
+            frozenTurns: undefined, // Remove frozen state
+            merged: false,
+            justMerged: false,
+            justSpawned: false
+          };
+        }
+      }
+    }
+    
+    const bonus = maxLevel * JOKER_FUSION_BONUS_MULTIPLIER;
+    return { newGrid, bonus };
   };
 
   // Helper function to check if score qualifies for leaderboard
@@ -420,8 +602,8 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       setPowerUpState(prev => ({
         ...prev,
         powerUps: currentPowerUps, // NEVER restore power-up slots
-        frozenTiles: stateToRestore.powerUpState.frozenTiles, // Restore frozen tiles
-        slowMotionTurns: stateToRestore.powerUpState.slowMotionTurns, // Restore slow motion
+        frozenTiles: stateToRestore.powerUpState?.frozenTiles || {}, // Restore frozen tiles
+        slowMotionTurns: stateToRestore.powerUpState?.slowMotionTurns || 0, // Restore slow motion
         extraUndos: useExtraUndo ? Math.max(0, prev.extraUndos - 1) : prev.extraUndos, // EINFACH: Wenn Extra-Undo benutzt, dann -1
         spawnedUndos: prev.spawnedUndos, // NEVER restore spawned undos - keep current value
         activePowerUp: null, // Reset active power-up
@@ -432,7 +614,6 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     }
     
     // Update undo availability - NEUE LOGIK
-    const remainingStates = undoHistory.length - 1;
     if (useExtraUndo) {
       // Extra-Undo wurde verwendet -> canUndo bleibt unverändert
       // Nichts tun
@@ -541,11 +722,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
         });
         break;
       case 'slowmo':
-        // Immediate effect: activate slow motion
+        // Immediate effect: activate slow motion (stacks with existing turns)
         setPowerUpState(prev => ({
           ...prev,
           powerUps: removePowerUp(prev.powerUps, powerUpId),
-          slowMotionTurns: 5
+          slowMotionTurns: prev.slowMotionTurns + 5
         }));
         break;
       case 'freeze':
@@ -637,7 +818,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           const { row, col } = picked[0];
           const tile = grid[row][col];
           
-          if (tile && !isTileFrozen(tile.id, powerUpState.frozenTiles)) {
+          if (tile) {
             // Check if freezing this tile would cause a deadlock (intelligent deadlock prevention)
             if (!canSafelyFreezeTile(grid, tile.id, powerUpState.frozenTiles, powerUpState.slowMotionTurns)) {
               // Show hint and cancel power-up selection without consuming the power-up
@@ -719,13 +900,11 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
 
     switch (powerUpState.activePowerUp) {
       case 'freeze':
-        if (!isTileFrozen(tile.id, powerUpState.frozenTiles)) {
-          setPowerUpState(prev => ({
-            ...prev,
-            frozenTiles: freezeTile(prev.frozenTiles, tile.id, 3),
-            activePowerUp: null
-          }));
-        }
+        setPowerUpState(prev => ({
+          ...prev,
+          frozenTiles: freezeTile(prev.frozenTiles, tile.id, 3),
+          activePowerUp: null
+        }));
         break;
       case 'delete':
         // Remove the tile
@@ -840,6 +1019,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     const newGrid: GameGrid = grid.map(row => [...row]);
     let moved = false;
     let merged = false;
+    let jokerFusion = false;
 
     newGrid.forEach(row => row.forEach(tile => {
       if (tile) {
@@ -850,9 +1030,25 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
     }));
 
     if (direction === 'left') {
+      // First pass: Process jokers with priority system and regular movement
       for (let row = 0; row < 4; row++) {
         for (let col = 1; col < 4; col++) {
-          if (newGrid[row][col] && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+          if (newGrid[row][col] && newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+            const result = processJokerMovement(newGrid, row, col, 'left');
+            if (result.moved) moved = true;
+            if (result.merged) merged = true;
+            if (result.jokerFusion) jokerFusion = true;
+            if (result.jokerFusion) break;
+          }
+        }
+        if (jokerFusion) break;
+      }
+      
+      // Second pass: Process normal tiles (skip jokers, they were handled above)
+      if (!jokerFusion) {
+        for (let row = 0; row < 4; row++) {
+          for (let col = 1; col < 4; col++) {
+            if (newGrid[row][col] && !newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
             let newCol = col;
             while (newCol > 0) {
               if (!newGrid[row][newCol - 1]) {
@@ -862,22 +1058,46 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 moved = true;
               } else if (canMerge(newGrid[row][newCol - 1]!, newGrid[row][newCol]!, powerUpState.frozenTiles)) {
                 const mergeResult = getMergeResult(newGrid[row][newCol - 1]!, newGrid[row][newCol]!);
-                const mergeScore = Math.pow(2, mergeResult.level);
-                newGrid[row][newCol - 1] = {
-                  ...newGrid[row][newCol - 1]!,
-                  level: mergeResult.level,
-                  isJoker: mergeResult.isJoker,
-                  merged: true,
-                  justMerged: true
-                };
-                setScore(prev => prev + mergeScore);
-                addScoreAnimation(mergeScore, row, newCol - 1);
-                // Update max discovered rank for persistent progress
-                updateMaxDiscoveredRank(mergeResult.level);
-                newGrid[row][newCol] = null;
-                moved = true;
-                merged = true;
-                break;
+                
+                // Handle joker fusion
+                if (mergeResult.isJokerFusion) {
+                  const maxLevel = getHighestNormalTileLevel(newGrid);
+                  const { newGrid: fusedGrid, bonus } = applyJokerJokerFusion(newGrid, maxLevel);
+                  
+                  // Replace the entire grid with the fused version
+                  for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                      newGrid[r][c] = fusedGrid[r][c];
+                    }
+                  }
+                  
+                  setScore(prev => prev + bonus);
+                  addScoreAnimation(bonus, row, newCol - 1);
+                  updateMaxDiscoveredRank(maxLevel);
+                  showJokerFusionBanner(`Joker-Fusion! Alle Tiles auf Level ${maxLevel} umgewandelt`);
+                  playTop100(); // Use fanfare sound
+                  moved = true;
+                  merged = true;
+                  jokerFusion = true;
+                  break;
+                } else {
+                  // Normal merge
+                  const mergeScore = Math.pow(2, mergeResult.level);
+                  newGrid[row][newCol - 1] = {
+                    ...newGrid[row][newCol - 1]!,
+                    level: mergeResult.level,
+                    isJoker: mergeResult.isJoker,
+                    merged: true,
+                    justMerged: true
+                  };
+                  setScore(prev => prev + mergeScore);
+                  addScoreAnimation(mergeScore, row, newCol - 1);
+                  updateMaxDiscoveredRank(mergeResult.level);
+                  newGrid[row][newCol] = null;
+                  moved = true;
+                  merged = true;
+                  break;
+                }
               } else {
                 break;
               }
@@ -885,10 +1105,27 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           }
         }
       }
+      } // Close the if (!jokerFusion) block
     } else if (direction === 'right') {
+      // First pass: Process jokers with priority system and regular movement
       for (let row = 0; row < 4; row++) {
         for (let col = 2; col >= 0; col--) {
-          if (newGrid[row][col] && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+          if (newGrid[row][col] && newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+            const result = processJokerMovement(newGrid, row, col, 'right');
+            if (result.moved) moved = true;
+            if (result.merged) merged = true;
+            if (result.jokerFusion) jokerFusion = true;
+            if (result.jokerFusion) break;
+          }
+        }
+        if (jokerFusion) break;
+      }
+      
+      // Second pass: Process normal tiles (skip jokers, they were handled above)
+      if (!jokerFusion) {
+        for (let row = 0; row < 4; row++) {
+          for (let col = 2; col >= 0; col--) {
+          if (newGrid[row][col] && !newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
             let newCol = col;
             while (newCol < 3) {
               if (!newGrid[row][newCol + 1]) {
@@ -898,22 +1135,46 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 moved = true;
               } else if (canMerge(newGrid[row][newCol + 1]!, newGrid[row][newCol]!, powerUpState.frozenTiles)) {
                 const mergeResult = getMergeResult(newGrid[row][newCol + 1]!, newGrid[row][newCol]!);
-                const mergeScore = Math.pow(2, mergeResult.level);
-                newGrid[row][newCol + 1] = {
-                  ...newGrid[row][newCol + 1]!,
-                  level: mergeResult.level,
-                  isJoker: mergeResult.isJoker,
-                  merged: true,
-                  justMerged: true
-                };
-                setScore(prev => prev + mergeScore);
-                addScoreAnimation(mergeScore, row, newCol + 1);
-                // Update max discovered rank for persistent progress
-                updateMaxDiscoveredRank(mergeResult.level);
-                newGrid[row][newCol] = null;
-                moved = true;
-                merged = true;
-                break;
+                
+                // Handle joker fusion
+                if (mergeResult.isJokerFusion) {
+                  const maxLevel = getHighestNormalTileLevel(newGrid);
+                  const { newGrid: fusedGrid, bonus } = applyJokerJokerFusion(newGrid, maxLevel);
+                  
+                  // Replace the entire grid with the fused version
+                  for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                      newGrid[r][c] = fusedGrid[r][c];
+                    }
+                  }
+                  
+                  setScore(prev => prev + bonus);
+                  addScoreAnimation(bonus, row, newCol + 1);
+                  updateMaxDiscoveredRank(maxLevel);
+                  showJokerFusionBanner(`Joker-Fusion! Alle Tiles auf Level ${maxLevel} umgewandelt`);
+                  playTop100(); // Use fanfare sound
+                  moved = true;
+                  merged = true;
+                  jokerFusion = true;
+                  break;
+                } else {
+                  // Normal merge
+                  const mergeScore = Math.pow(2, mergeResult.level);
+                  newGrid[row][newCol + 1] = {
+                    ...newGrid[row][newCol + 1]!,
+                    level: mergeResult.level,
+                    isJoker: mergeResult.isJoker,
+                    merged: true,
+                    justMerged: true
+                  };
+                  setScore(prev => prev + mergeScore);
+                  addScoreAnimation(mergeScore, row, newCol + 1);
+                  updateMaxDiscoveredRank(mergeResult.level);
+                  newGrid[row][newCol] = null;
+                  moved = true;
+                  merged = true;
+                  break;
+                }
               } else {
                 break;
               }
@@ -921,10 +1182,27 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           }
         }
       }
+      } // Close the if (!jokerFusion) block
     } else if (direction === 'up') {
+      // First pass: Process jokers with priority system and regular movement
       for (let col = 0; col < 4; col++) {
         for (let row = 1; row < 4; row++) {
-          if (newGrid[row][col] && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+          if (newGrid[row][col] && newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+            const result = processJokerMovement(newGrid, row, col, 'up');
+            if (result.moved) moved = true;
+            if (result.merged) merged = true;
+            if (result.jokerFusion) jokerFusion = true;
+            if (result.jokerFusion) break;
+          }
+        }
+        if (jokerFusion) break;
+      }
+      
+      // Second pass: Process normal tiles (skip jokers, they were handled above)
+      if (!jokerFusion) {
+        for (let col = 0; col < 4; col++) {
+          for (let row = 1; row < 4; row++) {
+          if (newGrid[row][col] && !newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
             let newRow = row;
             while (newRow > 0) {
               if (!newGrid[newRow - 1][col]) {
@@ -934,22 +1212,46 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 moved = true;
               } else if (canMerge(newGrid[newRow - 1][col]!, newGrid[newRow][col]!, powerUpState.frozenTiles)) {
                 const mergeResult = getMergeResult(newGrid[newRow - 1][col]!, newGrid[newRow][col]!);
-                const mergeScore = Math.pow(2, mergeResult.level);
-                newGrid[newRow - 1][col] = {
-                  ...newGrid[newRow - 1][col]!,
-                  level: mergeResult.level,
-                  isJoker: mergeResult.isJoker,
-                  merged: true,
-                  justMerged: true
-                };
-                setScore(prev => prev + mergeScore);
-                addScoreAnimation(mergeScore, newRow - 1, col);
-                // Update max discovered rank for persistent progress
-                updateMaxDiscoveredRank(mergeResult.level);
-                newGrid[newRow][col] = null;
-                moved = true;
-                merged = true;
-                break;
+                
+                // Handle joker fusion
+                if (mergeResult.isJokerFusion) {
+                  const maxLevel = getHighestNormalTileLevel(newGrid);
+                  const { newGrid: fusedGrid, bonus } = applyJokerJokerFusion(newGrid, maxLevel);
+                  
+                  // Replace the entire grid with the fused version
+                  for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                      newGrid[r][c] = fusedGrid[r][c];
+                    }
+                  }
+                  
+                  setScore(prev => prev + bonus);
+                  addScoreAnimation(bonus, newRow - 1, col);
+                  updateMaxDiscoveredRank(maxLevel);
+                  showJokerFusionBanner(`Joker-Fusion! Alle Tiles auf Level ${maxLevel} umgewandelt`);
+                  playTop100(); // Use fanfare sound
+                  moved = true;
+                  merged = true;
+                  jokerFusion = true;
+                  break;
+                } else {
+                  // Normal merge
+                  const mergeScore = Math.pow(2, mergeResult.level);
+                  newGrid[newRow - 1][col] = {
+                    ...newGrid[newRow - 1][col]!,
+                    level: mergeResult.level,
+                    isJoker: mergeResult.isJoker,
+                    merged: true,
+                    justMerged: true
+                  };
+                  setScore(prev => prev + mergeScore);
+                  addScoreAnimation(mergeScore, newRow - 1, col);
+                  updateMaxDiscoveredRank(mergeResult.level);
+                  newGrid[newRow][col] = null;
+                  moved = true;
+                  merged = true;
+                  break;
+                }
               } else {
                 break;
               }
@@ -957,10 +1259,27 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           }
         }
       }
+      } // Close the if (!jokerFusion) block
     } else if (direction === 'down') {
+      // First pass: Process jokers with priority system and regular movement
       for (let col = 0; col < 4; col++) {
         for (let row = 2; row >= 0; row--) {
-          if (newGrid[row][col] && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+          if (newGrid[row][col] && newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
+            const result = processJokerMovement(newGrid, row, col, 'down');
+            if (result.moved) moved = true;
+            if (result.merged) merged = true;
+            if (result.jokerFusion) jokerFusion = true;
+            if (result.jokerFusion) break;
+          }
+        }
+        if (jokerFusion) break;
+      }
+      
+      // Second pass: Process normal tiles (skip jokers, they were handled above)
+      if (!jokerFusion) {
+        for (let col = 0; col < 4; col++) {
+          for (let row = 2; row >= 0; row--) {
+          if (newGrid[row][col] && !newGrid[row][col]!.isJoker && !isTileFrozen(newGrid[row][col]!.id, powerUpState.frozenTiles)) {
             let newRow = row;
             while (newRow < 3) {
               if (!newGrid[newRow + 1][col]) {
@@ -970,22 +1289,46 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
                 moved = true;
               } else if (canMerge(newGrid[newRow + 1][col]!, newGrid[newRow][col]!, powerUpState.frozenTiles)) {
                 const mergeResult = getMergeResult(newGrid[newRow + 1][col]!, newGrid[newRow][col]!);
-                const mergeScore = Math.pow(2, mergeResult.level);
-                newGrid[newRow + 1][col] = {
-                  ...newGrid[newRow + 1][col]!,
-                  level: mergeResult.level,
-                  isJoker: mergeResult.isJoker,
-                  merged: true,
-                  justMerged: true
-                };
-                setScore(prev => prev + mergeScore);
-                addScoreAnimation(mergeScore, newRow + 1, col);
-                // Update max discovered rank for persistent progress
-                updateMaxDiscoveredRank(mergeResult.level);
-                newGrid[newRow][col] = null;
-                moved = true;
-                merged = true;
-                break;
+                
+                // Handle joker fusion
+                if (mergeResult.isJokerFusion) {
+                  const maxLevel = getHighestNormalTileLevel(newGrid);
+                  const { newGrid: fusedGrid, bonus } = applyJokerJokerFusion(newGrid, maxLevel);
+                  
+                  // Replace the entire grid with the fused version
+                  for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                      newGrid[r][c] = fusedGrid[r][c];
+                    }
+                  }
+                  
+                  setScore(prev => prev + bonus);
+                  addScoreAnimation(bonus, newRow + 1, col);
+                  updateMaxDiscoveredRank(maxLevel);
+                  showJokerFusionBanner(`Joker-Fusion! Alle Tiles auf Level ${maxLevel} umgewandelt`);
+                  playTop100(); // Use fanfare sound
+                  moved = true;
+                  merged = true;
+                  jokerFusion = true;
+                  break;
+                } else {
+                  // Normal merge
+                  const mergeScore = Math.pow(2, mergeResult.level);
+                  newGrid[newRow + 1][col] = {
+                    ...newGrid[newRow + 1][col]!,
+                    level: mergeResult.level,
+                    isJoker: mergeResult.isJoker,
+                    merged: true,
+                    justMerged: true
+                  };
+                  setScore(prev => prev + mergeScore);
+                  addScoreAnimation(mergeScore, newRow + 1, col);
+                  updateMaxDiscoveredRank(mergeResult.level);
+                  newGrid[newRow][col] = null;
+                  moved = true;
+                  merged = true;
+                  break;
+                }
               } else {
                 break;
               }
@@ -993,6 +1336,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
           }
         }
       }
+      } // Close the if (!jokerFusion) block
     }
 
     if (moved) {
@@ -1021,7 +1365,8 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
       });
       
       
-      const finalGrid = powerUpState.slowMotionTurns > 0 ? newGrid : spawnRandomTile(newGrid);
+      // Don't spawn new tiles after joker fusion
+      const finalGrid = (powerUpState.slowMotionTurns > 0 || jokerFusion) ? newGrid : spawnRandomTile(newGrid);
       setGrid(finalGrid);
       setCanUndo(true); // Enable undo after successful move
       
@@ -1311,6 +1656,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             onUsePowerUp={handleUsePowerUp}
             disabled={isGameOver || powerUpState.inputLocked}
             gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
+            slowMotionTurns={powerUpState.slowMotionTurns}
           />
           
           {/* PowerUp Hint floating at top - does not affect layout */}
@@ -1324,6 +1670,30 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             message={deadlockHint}
             gridWidth={(actualCellSize + CELL_GAP) * 4 - CELL_GAP}
           />
+          
+          {/* Joker Fusion Banner */}
+          {jokerFusionBanner && (
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: 'rgba(255, 215, 0, 0.95)',
+              color: '#333',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              zIndex: 1000,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              border: '2px solid #ffd700',
+              animation: 'pulse 0.5s ease-in-out',
+              minWidth: '250px'
+            }}>
+              {jokerFusionBanner}
+            </div>
+          )}
         </div>
         
         {/* Centered Game Grid */}
@@ -1384,6 +1754,7 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
               cellSize={actualCellSize}
               onTileClick={handleTileClick}
               isFrozen={isTileFrozen(tile.id, powerUpState.frozenTiles)}
+              freezeTurns={getFreezeRemainingTurns(tile.id, powerUpState.frozenTiles)}
               isSelected={powerUpState.swapSelection?.tileId === tile.id}
               canInteract={powerUpState.activePowerUp !== null && !isGameOver}
               isSelectable={isSelectable}
@@ -1410,6 +1781,21 @@ export const GameBoard = ({ onBackToStart, shouldLoadSavedGame, onPendingScore }
             score={score} 
             onRestart={resetGame}
             onMainMenu={goToMainMenu}
+            onBackToGame={() => {
+              // Close the game over overlay and reset states to allow undo functionality
+              setIsGameOver(false);
+              setLocalPendingScore(null); // Clear pending leaderboard entry
+              setScoreHasBeenSaved(false); // Reset save state
+              setCanUndo(true); // IMPORTANT: Re-enable normal undo since we're back in game
+              // Don't clear canUndoAfterGameOver flag - keep it as backup
+            }}
+            canUndo={
+              // Simple logic: if we have undo history and haven't finalized the game, allow back to game
+              undoHistory.length > 0 && !hasFinalizedGame() && (
+                canUndoAfterGameOver() || powerUpState.extraUndos > 0
+              )
+            }
+            extraUndos={powerUpState.extraUndos}
             onNameSubmit={handleNameSubmission}
             onSkipHighScore={handleSkipHighScore}
             isCheckingScore={isCheckingScore}

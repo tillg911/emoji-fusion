@@ -22,6 +22,8 @@
   "gameOver": {
     "title": "Spiel beendet!",
     "finalScore": "Endpunktzahl: {{score}}",
+    "undo": "Letzter Zug rückgängig",
+    "backToGame": "Zurück zum Spiel",
     "checkingLeaderboard": "⏳ Prüfe Bestenliste...",
     "savingScore": "💾 Speichere Punktzahl...",
     "topScore": "🎉 Top 100 Punktzahl! Gib deinen Namen ein:",

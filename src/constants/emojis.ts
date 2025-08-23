@@ -36,3 +36,6 @@ export const EMOJI_MAP = new Map<number, string>([
 // Special tile types
 export const JOKER_LEVEL = -1;
 export const JOKER_EMOJI = "🃏";
+
+// Joker fusion constants
+export const JOKER_FUSION_BONUS_MULTIPLIER = 50;

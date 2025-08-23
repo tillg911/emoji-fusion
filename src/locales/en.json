@@ -22,6 +22,8 @@
   "gameOver": {
     "title": "Game Over!",
     "finalScore": "Final Score: {{score}}",
+    "undo": "Undo Last Move",
+    "backToGame": "Back to Game",
     "checkingLeaderboard": "⏳ Checking leaderboard...",
     "savingScore": "💾 Saving score...",
     "topScore": "🎉 Top 100 Score! Enter your name:",

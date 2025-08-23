@@ -8,6 +8,9 @@ interface GameOverOverlayProps {
   score: number;
   onRestart: () => void;
   onMainMenu: () => void;
+  onBackToGame?: () => void;
+  canUndo?: boolean;
+  extraUndos?: number;
   onNameSubmit?: (name: string) => void;
   onSkipHighScore?: () => void;
   isCheckingScore?: boolean;
@@ -20,6 +23,9 @@ export const GameOverOverlay = ({
   score, 
   onRestart, 
   onMainMenu, 
+  onBackToGame,
+  canUndo = false,
+  extraUndos = 0,
   onNameSubmit,
   onSkipHighScore,
   isCheckingScore = false,
@@ -57,6 +63,15 @@ export const GameOverOverlay = ({
     
     return () => clearTimeout(timer);
   }, []);
+
+  // Debug back to game availability
+  useEffect(() => {
+    console.log('🔍 GameOverOverlay back to game debug:', {
+      canUndo,
+      extraUndos,
+      onBackToGame: !!onBackToGame
+    });
+  }, [canUndo, extraUndos, onBackToGame]);
 
   const handleNameSubmit = () => {
     if (onNameSubmit && name.trim() && !isSavingScore) {
@@ -347,6 +362,27 @@ export const GameOverOverlay = ({
           alignItems: 'center',
           width: '100%',
         }}>
+          {/* Back to Game Button - Prominently placed at top */}
+          {(canUndo || extraUndos > 0) && onBackToGame && (
+            <GameButton 
+              onClick={() => {
+                playButtonClick();
+                onBackToGame();
+              }}
+              disabled={false} // Never disable if shown
+              variant="warning"
+              size="md"
+              style={{
+                ...consistentElementStyle,
+                backgroundColor: '#FBB040',
+                color: 'white',
+                border: '2px solid #F59E0B',
+              }}
+            >
+              ↩️ {t('gameOver.backToGame')}
+            </GameButton>
+          )}
+          
           <GameButton 
             onClick={handleRestartClick}
             disabled={isCheckingScore || isSavingScore}

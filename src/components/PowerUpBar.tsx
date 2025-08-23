@@ -8,6 +8,7 @@ interface PowerUpBarProps {
   onUsePowerUp: (powerUpId: string) => void;
   disabled?: boolean;
   gridWidth?: number; // Width to match other UI elements
+  slowMotionTurns?: number; // Active slowmo turns count
 }
 
 const POWER_UP_EMOJIS: Record<PowerUpType, string> = {
@@ -26,7 +27,7 @@ const POWER_UP_COLORS: Record<PowerUpType, string> = {
   slowmo: '#A78BFA'  // Purple
 };
 
-export const PowerUpBar = ({ powerUps, onUsePowerUp, disabled = false, gridWidth }: PowerUpBarProps) => {
+export const PowerUpBar = ({ powerUps, onUsePowerUp, disabled = false, gridWidth, slowMotionTurns = 0 }: PowerUpBarProps) => {
   const [tooltipState, setTooltipState] = useState<{
     visible: boolean;
     type: PowerUpType | null;
@@ -76,6 +77,7 @@ export const PowerUpBar = ({ powerUps, onUsePowerUp, disabled = false, gridWidth
       <div style={{
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'center',
         gap: DESIGN_TOKENS.spacing.sm,
         padding: DESIGN_TOKENS.spacing.md,
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -86,6 +88,53 @@ export const PowerUpBar = ({ powerUps, onUsePowerUp, disabled = false, gridWidth
         minWidth: '280px',
         maxWidth: '500px',
       }}>
+        {/* Slowmo Indicator */}
+        {slowMotionTurns > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '60px',
+            height: '60px',
+            borderRadius: '8px',
+            backgroundColor: '#A78BFA',
+            border: '2px solid rgba(167, 139, 250, 0.3)',
+            fontSize: '28px',
+            animation: 'pulse-slowmo 2s ease-in-out infinite',
+            position: 'relative',
+            transition: 'all 0.2s ease',
+          }}>
+            <div style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              ⏳
+              {/* Counter badge */}
+              <div style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                backgroundColor: '#FBB040',
+                color: 'white',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid white',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+              }}>
+                {slowMotionTurns}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {slots.map(({ powerUp, index }) => (
           <div
             key={index}
